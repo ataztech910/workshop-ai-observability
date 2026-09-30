@@ -1,0 +1,29 @@
+{
+  "name": "workshop-ai-observability",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "nxo dev",
+    "observer": "nxo collector",
+    "dev:v1": "node scripts/dev.mjs v1",
+    "dev:v2": "node scripts/dev.mjs v2",
+    "build": "next build",
+    "start": "next start",
+    "load": "node scripts/load.mjs"
+  },
+  "dependencies": {
+    "next": "16.3.8",
+    "next-observe": "file:../nextjs-observe/packages/next-observe-0.0.1.tgz",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@google/adk": "^2.1.0",
+    "@google/genai": "^2.24.0",
+    "@kitana-sdk/adk": "^0.1.10",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^7.0.2"
+  }
+}
