@@ -1,6 +1,6 @@
 # Porto Shop — AI-Native Observability workshop app
 
-A small Next.js 16 shop instrumented with [next-observe](../nextjs-observe): traces from the server, the browser and your
+A small Next.js 16 shop instrumented with [next-observe](https://www.npmjs.com/package/next-observe): traces from the server, the browser and your
 own code (`'use observe'`), a local observer with a trace UI, and AI agents that investigate problems — on request or on
 their own.
 
