@@ -16,7 +16,7 @@ The shop has problems. Your job in the workshop is to let the telemetry and the 
 
 ```bash
 npm install                            # the app
-npx --yes next-observer@^0.1 --help    # downloads the observer once
+npx --yes next-observer@^0.2 --help    # downloads the observer once
 ```
 
 Do both before the workshop — conference Wi-Fi is slow.
