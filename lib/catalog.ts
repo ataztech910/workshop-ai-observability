@@ -1,3 +1,5 @@
+'use observe'
+
 import type { Product } from '@/data/products'
 import { getProductById, getProductIds } from './db'
 
