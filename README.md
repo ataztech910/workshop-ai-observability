@@ -26,12 +26,13 @@ You start with a plain Next.js app — no telemetry at all.
 
 | Block | You do | Fell behind? |
 |---|---|---|
-| 2 — Connect | `npx next-observer init`, then `npm run observe` → traces from the server and the browser | `git stash -u && git checkout block-2-init && npm install` |
-| 3 — Instrumentation | `'use observe'` in `lib/`, a span of your own | `git stash -u && git checkout block-3-instrumentation && npm install` |
-| 4 — AI agents | your own agent in `observe.agents.ts` | `git stash -u && git checkout block-4-agents && npm install` |
+| 2 — Connect | `npx next-observer init`, then `npm run observe` → traces from the server and the browser | `git stash -u && git checkout -B workshop block-2-init && npm install` |
+| 3 — Instrumentation | `'use observe'` in `lib/`, a span of your own | `git stash -u && git checkout -B workshop block-3-instrumentation && npm install` |
+| 4 — AI agents | your own agent in `observe.agents.ts` | `git stash -u && git checkout -B workshop block-4-agents && npm install` |
 
-`git stash -u` keeps your own changes (`git stash pop` brings them back); `npm install` because a block may add a
-dependency. Back to the very start: `git checkout block-2-start`.
+`git stash -u` keeps your own changes (`git stash pop` brings them back); `git checkout -B workshop <tag>` puts the
+block's state on your own branch `workshop`; `npm install` because a block may add a dependency. Back to the very
+start: `git checkout -B workshop block-2-start`.
 
 ## Two "deployments" (from block 2 on)
 
