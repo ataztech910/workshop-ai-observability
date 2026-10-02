@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "nxo dev",
-    "observer": "nxo collector",
+    "dev": "npx --yes next-observer@^0.1 dev",
+    "observer": "npx --yes next-observer@^0.1 collector",
     "dev:v1": "node scripts/dev.mjs v1",
     "dev:v2": "node scripts/dev.mjs v2",
     "build": "next build",
@@ -13,14 +13,11 @@
   },
   "dependencies": {
     "next": "16.3.8",
-    "next-observe": "^0.1.0",
+    "next-observe": "^0.2.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@google/adk": "^2.1.0",
-    "@google/genai": "^2.24.0",
-    "@kitana-sdk/adk": "^0.1.11",
     "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

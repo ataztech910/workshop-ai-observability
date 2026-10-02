@@ -1,21 +1,25 @@
 # Porto Shop — AI-Native Observability workshop app
 
-A small Next.js 16 shop instrumented with [next-observe](https://www.npmjs.com/package/next-observe): traces from the server, the browser and your
-own code (`'use observe'`), a local observer with a trace UI, and AI agents that investigate problems — on request or on
-their own.
+A small Next.js 16 shop instrumented with [next-observe](https://www.npmjs.com/package/next-observe): traces from the
+server, the browser and your own code (`'use observe'`). The observer —
+[next-observer](https://www.npmjs.com/package/next-observer), with a trace UI and AI agents that investigate problems on
+request or on their own — runs through `npx` and is not a dependency of the app.
 
 The shop has problems. Your job in the workshop is to let the telemetry and the agents find them.
 
 ## Prerequisites
 
-- Node.js 22+ and npm
+- Node.js 22.18+ and npm
 - For real AI answers (optional — everything also runs with a mock model):
   - a Gemini API key (`GEMINI_API_KEY` + `GEMINI_MODEL`), **or**
   - the Claude Code or Codex CLI logged in — used through Kitana, no API key needed
 
 ```bash
-npm install          # do this before the workshop — conference Wi-Fi is slow
+npm install                            # the app
+npx --yes next-observer@^0.1 --help    # downloads the observer once
 ```
+
+Do both before the workshop — conference Wi-Fi is slow.
 
 ## Quick start — everything in one terminal
 
