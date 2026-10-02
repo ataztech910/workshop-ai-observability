@@ -9,7 +9,7 @@ The shop has problems. Your job in the workshop is to let the telemetry and the 
 
 ## Prerequisites
 
-- Node.js 22.18+ and npm
+- Node.js 22.18+, npm and git (clone the repository — the workshop blocks are git tags)
 - For real AI answers (optional — everything also runs with a mock model):
   - a Gemini API key (`GEMINI_API_KEY` + `GEMINI_MODEL`), **or**
   - the Claude Code or Codex CLI logged in — used through Kitana, no API key needed
@@ -17,9 +17,10 @@ The shop has problems. Your job in the workshop is to let the telemetry and the 
 ```bash
 npm install                            # the app
 npx --yes next-observer@^0.2 --help    # downloads the observer once
+npm run doctor                         # checks everything below and says how to fix what is missing
 ```
 
-Do both before the workshop — conference Wi-Fi is slow.
+Do this before the workshop — conference Wi-Fi is slow.
 
 ## Workshop blocks
 
