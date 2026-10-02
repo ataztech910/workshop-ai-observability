@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { listProducts } from '@/lib/catalog'
 
-// Rendered per request so every visit runs the catalog query (and its N+1).
+// Rendered per request, so every visit loads the catalog.
 export const dynamic = 'force-dynamic'
 
 const price = (cents: number) => `€${(cents / 100).toFixed(2)}`

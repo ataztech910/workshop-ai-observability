@@ -1,6 +1,6 @@
 // `npm run dev:v1` / `npm run dev:v2` — run the app as a given "deployment" against a separately running observer
 // (`npm run observer`), so switching versions keeps the telemetry history — like a real deploy.
-// v2 contains the slow-payment regression; every span carries its version (service.version). Cross-platform.
+// v2 is the newer build; every span carries its version (service.version). Cross-platform.
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'

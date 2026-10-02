@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
-// Stock comes from /api/inventory (fails ~30% of the time), buying calls /api/checkout (slow in v2).
+// Shows the stock (from /api/inventory) and buys through /api/checkout.
 export function Buy({ productId }: { productId: string }) {
   const [stock, setStock] = useState<string>('checking stock…')
   const [result, setResult] = useState<string>('')

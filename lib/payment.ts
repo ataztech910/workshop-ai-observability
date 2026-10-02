@@ -1,9 +1,7 @@
-'use observe'
-
 import { jitter } from './sleep'
 
-// BUG 1 — slow payment, introduced in v2: the provider call is now retried "for resilience",
-// without a timeout, so every checkout waits for up to 2.5 s. v1 did a single call.
+// Charges the card through the (simulated) payment provider. SHOP_VERSION is the deployed build, set by
+// `npm run dev:v1` / `npm run dev:v2`.
 const VERSION = process.env.SHOP_VERSION ?? 'v2'
 
 export async function chargePayment(amountCents: number): Promise<{ transactionId: string; amountCents: number }> {
