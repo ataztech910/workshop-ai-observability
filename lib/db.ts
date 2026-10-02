@@ -1,5 +1,3 @@
-'use observe'
-
 // A fake database: every query costs ~18 ms, like a round trip to a real one.
 import { PRODUCTS, type Product } from '@/data/products'
 import { jitter } from './sleep'

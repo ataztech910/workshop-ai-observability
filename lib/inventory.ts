@@ -1,5 +1,3 @@
-'use observe'
-
 import { jitter } from './sleep'
 
 // Asks the (simulated) inventory service how many items are in stock.
