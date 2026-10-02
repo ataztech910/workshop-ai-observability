@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "doctor": "node scripts/doctor.mjs",
     "dev": "npx --yes next-observer@^0.2 dev",
     "observer": "npx --yes next-observer@^0.2 collector",
     "dev:v1": "node scripts/dev.mjs v1",
