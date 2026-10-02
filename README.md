@@ -21,6 +21,21 @@ npx --yes next-observer@^0.2 --help    # downloads the observer once
 
 Do both before the workshop — conference Wi-Fi is slow.
 
+## Workshop blocks
+
+You start here: the shop already sends **server** traces to the observer. During the workshop you add the rest — your
+own code with `'use observe'`, the browser, a span of your own (block 3) and your own agent (block 4).
+
+Fell behind? Each block's result is a git tag:
+
+| Block | Catch up with |
+|---|---|
+| 3 — Instrumentation | `git stash -u && git checkout block-3-instrumentation && npm install` |
+| 4 — AI agents | `git stash -u && git checkout block-4-agents && npm install` |
+
+`git stash -u` keeps your own changes (`git stash pop` brings them back); `npm install` because a block may add a
+dependency.
+
 ## Quick start — everything in one terminal
 
 ```bash

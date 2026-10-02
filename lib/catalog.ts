@@ -1,10 +1,7 @@
-'use observe'
-
 import type { Product } from '@/data/products'
 import { getProductById, getProductIds } from './db'
 
-// BUG 2 — N+1: one query for the ids, then one query per product, one after another.
-// No single span is slow; together they are. One query for all products would do.
+// The product list for the home page.
 export async function listProducts(): Promise<Product[]> {
   const ids = await getProductIds()
   const products: Product[] = []
