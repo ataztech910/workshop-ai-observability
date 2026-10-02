@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "doctor": "node scripts/doctor.mjs",
-    "dev": "npx --yes next-observer@^0.2 dev",
-    "observer": "npx --yes next-observer@^0.2 collector",
+    "dev": "next dev",
+    "observer": "npx --yes next-observer@^0.3 collector",
     "dev:v1": "node scripts/dev.mjs v1",
     "dev:v2": "node scripts/dev.mjs v2",
     "build": "next build",
@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "next": "16.3.8",
-    "next-observe": "^0.3.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

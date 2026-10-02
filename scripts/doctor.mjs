@@ -5,9 +5,9 @@ import { existsSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
 
-const OBSERVER = 'next-observer@^0.2'
+const OBSERVER = 'next-observer@^0.3'
 const OBSERVER_PORT = 4318
-const TAGS = ['block-2-start', 'block-3-instrumentation', 'block-4-agents']
+const TAGS = ['block-2-start', 'block-2-init', 'block-3-instrumentation', 'block-4-agents']
 const root = process.cwd()
 const isWindows = process.platform === 'win32'
 
@@ -34,8 +34,9 @@ const installed = (name) => {
 }
 const next = installed('next')
 const nextObserve = installed('next-observe')
-if (next && nextObserve) ok(`npm install done (next ${next}, next-observe ${nextObserve})`)
-else fail('dependencies are not installed', 'run `npm install` in this folder')
+if (!next) fail('dependencies are not installed', 'run `npm install` in this folder')
+// next-observe comes with `npx next-observer init` in block 2 — not having it yet is the starting point, not a problem.
+else ok(`npm install done (next ${next}${nextObserve ? `, next-observe ${nextObserve}` : ', next-observe comes with init in block 2'})`)
 
 // 3. The observer is downloaded — `npm run dev` / `npm run observer` start it with npx, which needs the network once.
 const observer = run('npx', ['--yes', '--prefer-offline', OBSERVER, '--help'], 180_000)
