@@ -13,12 +13,12 @@ on their own — runs through `npx` and is never a dependency of the app.
   - the Claude Code or Codex CLI logged in — used through Kitana, no API key needed
 
 ```bash
-npm install                            # the app
-npx --yes next-observer@^0.3 --help    # downloads the observer once
-npm run doctor                         # checks everything and says how to fix what is missing
+npm install       # the app
+npm run doctor    # downloads the observer and everything the blocks add, checks the rest, says how to fix what is missing
 ```
 
-Do this before the workshop — conference Wi-Fi is slow.
+Do this before the workshop — conference Wi-Fi is slow. After `npm run doctor` says "All set", the whole workshop
+works without a network: the observer, `npx next-observer init` in block 2, and catching up to any block.
 
 ## Workshop blocks
 
