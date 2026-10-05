@@ -40,7 +40,8 @@ if (!next) fail('dependencies are not installed', 'run `npm install` in this fol
 else ok(`npm install done (next ${next}${nextObserve ? `, next-observe ${nextObserve}` : ', next-observe comes with init in block 2'})`)
 
 // 3. The observer is downloaded — `npm run dev` / `npm run observer` start it with npx, which needs the network once.
-const observer = run('npx', ['--yes', '--prefer-offline', OBSERVER, '--help'], 180_000)
+// Through the network on purpose (no --prefer-offline): this runs at home and should pick up the newest observer.
+const observer = run('npx', ['--yes', OBSERVER, '--help'], 180_000)
 if (observer.status === 0) ok(`observer ready (${OBSERVER})`)
 else fail('the observer could not be downloaded or started', `run \`npx --yes ${OBSERVER} --help\` while online and read its error`)
 
@@ -88,7 +89,8 @@ if (Object.values(sources).some((r) => r.status !== 0)) {
   let tmp
   try {
     tmp = mkdtempSync(join(tmpdir(), 'porto-shop-cache-'))
-    const npm = (args) => run('npm', [...args, '--ignore-scripts', '--no-audit', '--no-fund', '--prefer-offline'], 600_000, tmp).status === 0
+    // No --prefer-offline here either: the cache should end up with what the registry has today.
+    const npm = (args) => run('npm', [...args, '--ignore-scripts', '--no-audit', '--no-fund'], 600_000, tmp).status === 0
     writeFileSync(join(tmp, 'package.json'), sources.startPkg.stdout)
     writeFileSync(join(tmp, 'package-lock.json'), sources.startLock.stdout)
     // What the blocks add on top of the start: next-observe (block 2, by init) and the OpenTelemetry API (block 3).
