@@ -1,8 +1,9 @@
 // `npm run doctor` — is this machine ready for the workshop? Each check says what to do when it fails.
 // Required checks fail the command (exit 1); the real-AI check is optional — everything also runs with a mock model.
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const OBSERVER = 'next-observer@^0.3'
@@ -16,7 +17,7 @@ const ok = (label) => results.push({ status: 'ok', label })
 const fail = (label, fix) => results.push({ status: 'fail', label, fix })
 const warn = (label, fix) => results.push({ status: 'warn', label, fix })
 
-const run = (command, args, timeout = 60_000) => spawnSync(command, args, { cwd: root, encoding: 'utf8', timeout, shell: isWindows })
+const run = (command, args, timeout = 60_000, cwd = root) => spawnSync(command, args, { cwd, encoding: 'utf8', timeout, shell: isWindows })
 
 // 1. Node.js: next-observer loads observe.agents.ts with Node's type stripping (22.18+).
 const [major, minor] = process.versions.node.split('.').map(Number)
@@ -39,7 +40,8 @@ if (!next) fail('dependencies are not installed', 'run `npm install` in this fol
 else ok(`npm install done (next ${next}${nextObserve ? `, next-observe ${nextObserve}` : ', next-observe comes with init in block 2'})`)
 
 // 3. The observer is downloaded — `npm run dev` / `npm run observer` start it with npx, which needs the network once.
-const observer = run('npx', ['--yes', '--prefer-offline', OBSERVER, '--help'], 180_000)
+// Through the network on purpose (no --prefer-offline): this runs at home and should pick up the newest observer.
+const observer = run('npx', ['--yes', OBSERVER, '--help'], 180_000)
 if (observer.status === 0) ok(`observer ready (${OBSERVER})`)
 else fail('the observer could not be downloaded or started', `run \`npx --yes ${OBSERVER} --help\` while online and read its error`)
 
@@ -68,7 +70,51 @@ if (existsSync(join(root, '.git'))) {
   else fail(`missing git tags: ${missing.join(', ')}`, 'run `git fetch --tags`')
 } else warn('not a git clone — catching up with tags will not work', 'clone the repository with git instead of downloading a zip')
 
-// 6. Real AI (optional): Gemini, or Kitana through a logged-in CLI.
+// 6. Everything the blocks add is in npm's cache, so the workshop does not depend on the Wi-Fi. Two things are needed,
+// and both are done once in a temporary folder that is removed afterwards:
+//   - block 2's `npx next-observer init` runs `npm install next-observe`: without a lockfile entry npm has to look up
+//     which versions exist, so the same command is run here from the starting state — that caches the lookups;
+//   - catching up (`git checkout -B workshop <tag> && npm install`) installs exactly what the tag's lockfile names, so
+//     the last block's dependency tree is installed too — that caches every package file.
+const START = TAGS[0]
+const LAST_BLOCK = TAGS[TAGS.length - 1]
+const fileAt = (tag, file) => run('git', ['show', `${tag}:${file}`])
+const sources = { startPkg: fileAt(START, 'package.json'), startLock: fileAt(START, 'package-lock.json'), lastPkg: fileAt(LAST_BLOCK, 'package.json'), lastLock: fileAt(LAST_BLOCK, 'package-lock.json') }
+const cannotDownload = (reason) =>
+  fail(`could not download the packages the blocks add${reason ? ` (${reason})` : ''}`, 'check the network and run `npm run doctor` again — do it before the workshop, the Wi-Fi there is slow')
+if (Object.values(sources).some((r) => r.status !== 0)) {
+  warn('could not prepare the blocks for working offline (the workshop tags are missing)', 'run `git fetch --tags`, then `npm run doctor` again')
+} else {
+  // Anything unexpected here (no writable temp folder, a damaged tag) is one failed check, not a crash of the report.
+  let tmp
+  try {
+    tmp = mkdtempSync(join(tmpdir(), 'porto-shop-cache-'))
+    // No --prefer-offline here either: the cache should end up with what the registry has today.
+    const npm = (args) => run('npm', [...args, '--ignore-scripts', '--no-audit', '--no-fund'], 600_000, tmp).status === 0
+    writeFileSync(join(tmp, 'package.json'), sources.startPkg.stdout)
+    writeFileSync(join(tmp, 'package-lock.json'), sources.startLock.stdout)
+    // What the blocks add on top of the start: next-observe (block 2, by init) and the OpenTelemetry API (block 3).
+    const startDeps = JSON.parse(sources.startPkg.stdout).dependencies ?? {}
+    const added = Object.keys(JSON.parse(sources.lastPkg.stdout).dependencies ?? {}).filter((name) => !(name in startDeps))
+    const likeInit = added.length === 0 || npm(['install', ...added])
+    writeFileSync(join(tmp, 'package.json'), sources.lastPkg.stdout)
+    writeFileSync(join(tmp, 'package-lock.json'), sources.lastLock.stdout)
+    const likeCatchUp = npm(['ci'])
+    if (likeInit && likeCatchUp) ok('the blocks work without Wi-Fi (their packages are in npm\'s cache)')
+    else cannotDownload()
+  } catch (error) {
+    cannotDownload(error instanceof Error ? error.message : String(error))
+  } finally {
+    // Removing a folder that could not be created, or cannot be removed, must not hide the result either.
+    try {
+      if (tmp) rmSync(tmp, { recursive: true, force: true })
+    } catch {
+      // The system clears its temp folder on its own.
+    }
+  }
+}
+
+// 7. Real AI (optional): Gemini, or Kitana through a logged-in CLI.
 const hasCli = (name) => run(name, ['--version'], 20_000).status === 0
 if (process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL) ok(`real AI: Gemini (${process.env.GEMINI_MODEL})`)
 else if (process.env.GEMINI_API_KEY) warn('GEMINI_API_KEY is set but GEMINI_MODEL is not', 'set GEMINI_MODEL too, e.g. GEMINI_MODEL=gemini-2.5-flash')
