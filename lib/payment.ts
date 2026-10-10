@@ -1,3 +1,5 @@
+'use observe'
+
 import { jitter } from './sleep'
 
 // Charges the card through the (simulated) payment provider. SHOP_VERSION is the deployed build, set by
