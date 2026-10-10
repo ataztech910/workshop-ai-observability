@@ -7,6 +7,7 @@ export function Buy({ productId }: { productId: string }) {
   const [stock, setStock] = useState<string>('checking stock…')
   const [result, setResult] = useState<string>('')
   const [busy, setBusy] = useState(false)
+  const [quantity, setQuantity] = useState(1)
 
   useEffect(() => {
     fetch(`/api/inventory/${productId}`)
@@ -17,7 +18,7 @@ export function Buy({ productId }: { productId: string }) {
   async function buy() {
     setBusy(true)
     const started = performance.now()
-    const res = await fetch('/api/checkout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ productId }) })
+    const res = await fetch('/api/checkout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ productId, quantity }) })
     setResult(res.ok ? `Paid in ${Math.round(performance.now() - started)} ms` : 'Payment failed')
     setBusy(false)
   }
@@ -25,6 +26,11 @@ export function Buy({ productId }: { productId: string }) {
   return (
     <div className="buy">
       <p>{stock}</p>
+      <select value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} aria-label="Quantity">
+        {[1, 2, 3, 5, 10, 20].map((n) => (
+          <option key={n}>{n}</option>
+        ))}
+      </select>{' '}
       <button onClick={buy} disabled={busy}>
         {busy ? 'Paying…' : 'Buy'}
       </button>

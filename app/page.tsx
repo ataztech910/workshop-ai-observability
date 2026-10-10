@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { listProducts } from '@/lib/catalog'
+import { Search } from './search'
 
 // Rendered per request, so every visit loads the catalog.
 export const dynamic = 'force-dynamic'
@@ -11,6 +12,7 @@ export default async function CatalogPage() {
   return (
     <main>
       <h1>Porto Shop</h1>
+      <Search />
       <ul className="products">
         {products.map((p) => (
           <li key={p.id}>
