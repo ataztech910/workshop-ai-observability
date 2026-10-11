@@ -1,5 +1,6 @@
+import { withObserve } from 'next-observe/config'
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {}
 
-export default nextConfig
+export default withObserve(nextConfig)
