@@ -17,6 +17,8 @@ const checks: Check[] = [
   // An invariant: what the API must refuse. It fails the day somebody loosens the validation.
   { name: 'checkout refuses 99 items', url: '/api/checkout', method: 'POST', body: { productId: '1', quantity: 99 }, everySeconds: 10, expect: { status: 400 } },
   { name: 'stock is known', url: '/api/inventory/1', everySeconds: 10 },
+  // Asked for product 1 — is it product 1 that came back? A 200 in 20 ms says nothing about that.
+  { name: 'product 1 is the mug', url: '/api/products/1', everySeconds: 10, expect: { bodyIncludes: 'Porto tile mug' } },
 ]
 
 export default checks

@@ -9,6 +9,9 @@ const requests = [
   () => fetch(`${BASE}/api/products`),
   () => fetch(`${BASE}/api/inventory/${1 + Math.floor(Math.random() * 5)}`),
   () => fetch(`${BASE}/api/inventory/${1 + Math.floor(Math.random() * 5)}`),
+  // Single products, so that different queries overlap — what a busy shop does all the time.
+  () => fetch(`${BASE}/api/products/${1 + Math.floor(Math.random() * 5)}`),
+  () => fetch(`${BASE}/api/products/${1 + Math.floor(Math.random() * 5)}`),
   () => fetch(`${BASE}/api/checkout`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ productId: String(1 + Math.floor(Math.random() * 5)) }) }),
 ]
 

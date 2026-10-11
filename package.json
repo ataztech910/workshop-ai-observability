@@ -10,6 +10,7 @@
     "observer": "npx --yes --prefer-offline next-observer@^0.3.26 collector",
     "dev:v1": "node scripts/dev.mjs v1",
     "dev:v2": "node scripts/dev.mjs v2",
+    "dev:v3": "node scripts/dev.mjs v3",
     "build": "next build",
     "start": "next start",
     "load": "node scripts/load.mjs",
