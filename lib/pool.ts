@@ -16,7 +16,9 @@ let lastAnswer: Promise<unknown> = Promise.resolve()
 export function queryProduct(id: string): Promise<Product | undefined> {
   return new Promise((resolve) => {
     waiting.push(resolve)
-    const run = jitter(15, 21).then(() => PRODUCTS.find((p) => p.id === id))
+    // Behind the pooler every query lands on whichever backend is free, and they are not equally quick: the spread of
+    // answer times is what lets a later query overtake an earlier one. (The average stays about the same — v3 is not slower.)
+    const run = (TRANSACTION_POOLER ? jitter(4, 34) : jitter(15, 21)).then(() => PRODUCTS.find((p) => p.id === id))
     // A direct connection answers in order: this answer is delivered only after the one before it.
     const answer = TRANSACTION_POOLER ? run : Promise.all([run, lastAnswer]).then(([row]) => row)
     lastAnswer = answer
