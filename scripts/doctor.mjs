@@ -6,7 +6,9 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-const OBSERVER = 'next-observer@^0.3'
+// At least the version with scheduled checks (block 4). A range with a patch number also keeps an older copy in
+// npm's cache from being picked.
+const OBSERVER = 'next-observer@^0.3.26'
 const OBSERVER_PORT = 4318
 const TAGS = ['block-2-start', 'block-2-init', 'block-3-instrumentation', 'block-4-agents']
 const root = process.cwd()
