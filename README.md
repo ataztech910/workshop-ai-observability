@@ -1,9 +1,10 @@
 # Porto Shop — AI-Native Observability workshop app
 
 A small Next.js 16 shop with problems. In the workshop you connect it to OpenTelemetry with
-[next-observe](https://www.npmjs.com/package/next-observe) and let the telemetry and AI agents find them. The observer —
-[next-observer](https://www.npmjs.com/package/next-observer), with a trace UI and agents that investigate on request or
-on their own — runs through `npx` and is never a dependency of the app.
+[next-observe](https://www.npmjs.com/package/next-observe) — the APM agent, a library inside the app — and let the
+telemetry and AI agents find them. The observer, [next-observer](https://www.npmjs.com/package/next-observer), has the
+trace UI, the scheduled checks and the AI agents that investigate on request or on their own. It runs through `npx` and
+is never a dependency of the app.
 
 ## Prerequisites
 
@@ -28,7 +29,7 @@ You start with a plain Next.js app — no telemetry at all.
 |---|---|---|
 | 2 — Connect | `npx next-observer init`, then `npm run observe` → traces from the server and the browser | `git stash -u && git checkout -B workshop block-2-init && npm install` |
 | 3 — Instrumentation | `'use observe'` in `lib/`, a span of your own | `git stash -u && git checkout -B workshop block-3-instrumentation && npm install` |
-| 4 — AI agents | your own agent in `observe.agents.ts` | `git stash -u && git checkout -B workshop block-4-agents && npm install` |
+| 4 — AI agents | your own AI agent in `observe.agents.ts`, scheduled checks in `observe.checks.ts` | `git stash -u && git checkout -B workshop block-4-agents && npm install` |
 
 `git stash -u` keeps your own changes (`git stash pop` brings them back); `git checkout -B workshop <tag>` puts the
 block's state on your own branch `workshop`; `npm install` because a block may add a dependency. Back to the very
@@ -57,8 +58,12 @@ Open http://127.0.0.1:4318/chat and ask, for example:
 - *There are 500 errors on product pages. Which operation is failing and why?*
 - *The product catalog is slower than expected but no single span stands out. What is wrong?*
 
-Leave the chat open while traffic runs: when the observer detects an anomaly, the agents start investigating without
+Leave the chat open while traffic runs: when the observer detects an anomaly, the AI agents start investigating without
 being asked.
+
+From block 4 the observer also asks the shop itself, every 10 seconds, whether five things are still true
+(`observe.checks.ts`) — see http://127.0.0.1:4318/checks. Run the shop as v1, then as v2, and watch
+"checkout takes under a second": it fails without any traffic, and the AI agents are sent to look.
 
 ## Configuration
 
