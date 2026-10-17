@@ -12,17 +12,26 @@ export default async function ProductPage(props: PageProps<'/product/[id]'>) {
   const product = await getProductById(id)
   if (!product) notFound()
   return (
-    <main>
-      <Link href="/">← Catalog</Link>
-      <h1>{product.name}</h1>
-      <p>€{(product.priceCents / 100).toFixed(2)}</p>
-      <Viewers />
-      <Buy productId={product.id} />
-      <div className="actions">
-        <Wishlist productId={product.id} /> <Details productId={product.id} />
+    <main className="product container">
+      <img src={`/products/${product.id}.jpg`} alt={product.name} width={816} height={816} className="panel" />
+      <div className="product-info">
+        <Link href="/" className="back">
+          ← Catalog
+        </Link>
+        <div>
+          <h1>{product.name}</h1>
+          <p className="price">€{(product.priceCents / 100).toFixed(2)}</p>
+          <Viewers />
+        </div>
+        <Buy productId={product.id} />
+        <div className="actions">
+          <Wishlist productId={product.id} /> <Details productId={product.id} />
+        </div>
+        <section>
+          <h2>Reviews</h2>
+          <Reviews productId={product.id} />
+        </section>
       </div>
-      <h2>Reviews</h2>
-      <Reviews productId={product.id} />
     </main>
   )
 }
