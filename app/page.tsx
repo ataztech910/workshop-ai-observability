@@ -10,13 +10,18 @@ const price = (cents: number) => `€${(cents / 100).toFixed(2)}`
 export default async function CatalogPage() {
   const products = await listProducts()
   return (
-    <main>
+    <main className="catalog container">
       <h1>Porto Shop</h1>
+      <p className="tagline">Trading post · Station Porto-7</p>
       <Search />
       <ul className="products">
         {products.map((p) => (
-          <li key={p.id}>
-            <Link href={`/product/${p.id}`}>{p.name}</Link> <span>{price(p.priceCents)}</span>
+          <li key={p.id} className="product-card panel">
+            <img src={`/products/${p.id}.jpg`} alt="" width={816} height={816} loading="lazy" />
+            <div>
+              <Link href={`/product/${p.id}`}>{p.name}</Link>
+              <p className="price">{price(p.priceCents)}</p>
+            </div>
           </li>
         ))}
       </ul>

@@ -19,9 +19,9 @@ export function Search() {
 
   return (
     <div className="search">
-      <input type="search" placeholder="Search the shop" value={query} onChange={(e) => setQuery(e.target.value)} />
-      {filter.q && (
-        <ul className="products">
+      <input type="search" className="field" placeholder="Search the shop" value={query} onChange={(e) => setQuery(e.target.value)} />
+      {filter.q && found.length > 0 && (
+        <ul className="search-results panel">
           {found.map((p) => (
             <li key={p.id}>
               <Link href={`/product/${p.id}`}>{p.name}</Link>

@@ -1,8 +1,128 @@
-body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; }
-.products { list-style: none; padding: 0; }
-.products li { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
-button { padding: 0.5rem 1.25rem; font-size: 1rem; cursor: pointer; }
-select, input[type='search'] { padding: 0.5rem; font-size: 1rem; }
-.search input { width: 100%; box-sizing: border-box; }
-.muted { color: #777; }
-.reviews { padding-left: 1.2rem; }
+/* Porto Shop — the trading post of station Porto-7. Design from a Lovable prototype, ported to plain CSS: no
+   framework, fonts served from public/fonts, so the shop looks the same without a network. */
+
+@font-face {
+  font-family: 'Righteous';
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/righteous-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('/fonts/space-grotesk-latin.woff2') format('woff2');
+}
+
+:root {
+  --background: oklch(0.2 0.05 255);
+  --foreground: oklch(0.95 0.03 85);
+  --card: oklch(0.26 0.055 250);
+  --primary: oklch(0.72 0.17 50);
+  --primary-foreground: oklch(0.2 0.05 255);
+  --secondary: oklch(0.62 0.1 195);
+  --muted: oklch(0.3 0.05 250);
+  --muted-foreground: oklch(0.75 0.04 220);
+  --destructive: oklch(0.68 0.19 28);
+  --success: oklch(0.78 0.13 175);
+  --border: oklch(0.95 0.03 85 / 18%);
+  --input: oklch(0.95 0.03 85 / 25%);
+  --ring: oklch(0.72 0.17 50);
+  --radius: 1rem;
+  --shadow-pop: 6px 6px 0 0 oklch(0.12 0.04 255);
+  --font-display: 'Righteous', system-ui, sans-serif;
+  --font-sans: 'Space Grotesk', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
+/* Soft grain over everything, like the illustrations. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.08;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+a { color: inherit; }
+img { display: block; max-width: 100%; height: auto; } /* width/height attributes only reserve the space */
+
+.container { max-width: 72rem; margin: 0 auto; padding: 0 1.5rem; }
+.muted { color: var(--muted-foreground); }
+
+/* ----- station header ----- */
+.station { position: relative; overflow: hidden; border-bottom: 2px solid var(--border); }
+.planet { border-radius: 9999px; background: radial-gradient(circle at 30% 30%, oklch(0.8 0.15 60), oklch(0.6 0.18 40) 55%, oklch(0.35 0.1 30)); }
+.station .planet { position: absolute; right: -4rem; top: -5rem; width: 14rem; height: 14rem; opacity: 0.9; }
+.station-bar { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 1rem; padding-bottom: 1rem; font-size: 0.875rem; }
+.station-name { font-family: var(--font-display); letter-spacing: 0.15em; color: var(--secondary); text-decoration: none; }
+.pill { border-radius: 9999px; background: var(--muted); color: var(--muted-foreground); padding: 0.25rem 0.75rem; }
+
+/* ----- building blocks ----- */
+h1, h2 { font-family: var(--font-display); font-weight: 400; margin: 0; line-height: 1.1; }
+.panel { background: var(--card); border: 2px solid var(--border); border-radius: calc(var(--radius) + 4px); box-shadow: var(--shadow-pop); }
+.field { background: var(--background); border: 2px solid var(--input); border-radius: var(--radius); padding: 0.75rem 1rem; color: var(--foreground); font: inherit; font-size: 1rem; }
+.field:focus { outline: none; border-color: var(--ring); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 9999px; font: inherit; font-weight: 700; padding: 0.75rem 1.5rem; border: 2px solid transparent; cursor: pointer; transition: transform 0.1s, background 0.2s; }
+.btn:active { transform: translate(2px, 2px); }
+.btn:disabled { opacity: 0.6; cursor: progress; }
+.btn:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+.btn-primary { background: var(--primary); color: var(--primary-foreground); box-shadow: var(--shadow-pop); font-size: 1.125rem; }
+.btn-outline { background: transparent; border-color: var(--secondary); color: var(--foreground); }
+.btn-outline:hover { background: var(--muted); }
+
+/* ----- catalog ----- */
+.catalog { padding-top: 2.5rem; padding-bottom: 3rem; }
+.catalog h1 { font-size: clamp(3.5rem, 8vw, 4.5rem); color: var(--primary); }
+.tagline { margin: 0.5rem 0 0; font-size: 1.125rem; color: var(--muted-foreground); }
+.search { position: relative; max-width: 36rem; margin-top: 2rem; }
+.search input { width: 100%; font-size: 1.125rem; }
+.search-results { position: absolute; z-index: 10; width: 100%; margin: 0.5rem 0 0; padding: 0.5rem; list-style: none; }
+.search-results a { display: flex; justify-content: space-between; border-radius: 0.5rem; padding: 0.5rem 0.75rem; text-decoration: none; }
+.search-results a:hover { background: var(--muted); }
+.products { list-style: none; padding: 0; margin: 2.5rem 0 0; display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); }
+.product-card { overflow: hidden; }
+.product-card img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+.product-card div { padding: 1rem; }
+.product-card a { font-weight: 600; text-decoration: none; }
+.product-card a:hover { color: var(--primary); text-decoration: underline; text-underline-offset: 4px; }
+.price { margin: 0.25rem 0 0; font-family: var(--font-display); font-size: 1.25rem; color: var(--primary); }
+
+/* ----- product page ----- */
+.product { display: grid; gap: 2.5rem; padding-top: 2rem; padding-bottom: 3rem; }
+@media (min-width: 768px) { .product { grid-template-columns: 1fr 1fr; } }
+.product > img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+.product-info { display: flex; flex-direction: column; gap: 1.5rem; }
+.back { font-weight: 600; color: var(--secondary); text-decoration: none; }
+.back:hover { text-decoration: underline; }
+.product-info h1 { font-size: 3rem; }
+.product-info .price { margin-top: 0.5rem; font-size: 1.875rem; }
+.product-info .muted { margin: 0.5rem 0 0; font-size: 0.875rem; }
+.buy { display: flex; flex-direction: column; gap: 1rem; padding: 1.5rem; }
+.buy p { margin: 0; }
+.buy-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem; }
+.buy-row label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem; color: var(--muted-foreground); }
+.buy-row .btn { flex: 1; }
+.stock-ok, .paid { color: var(--success); }
+.failed { color: var(--destructive); }
+.result { min-height: 1.5rem; font-size: 0.875rem; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.actions p { margin: 0; }
+.product-info h2 { font-size: 1.5rem; color: var(--secondary); }
+.reviews { list-style: none; padding: 0; margin: 0.75rem 0 0; display: grid; gap: 0.5rem; }
+.reviews li { border-left: 4px solid var(--primary); padding-left: 1rem; }
+
+/* ----- error page ----- */
+.oops { max-width: 36rem; margin: 0 auto; padding: 5rem 1.5rem; display: flex; flex-direction: column; align-items: center; gap: 1.5rem; text-align: center; }
+.oops .planet { width: 7rem; height: 7rem; }
+.oops h1 { font-size: 3rem; }
+.oops p { margin: 0; font-size: 1.125rem; color: var(--muted-foreground); }

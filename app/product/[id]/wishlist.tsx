@@ -13,5 +13,9 @@ export function Wishlist({ productId }: { productId: string }) {
     setSaved(true)
   }
 
-  return <button onClick={save}>{saved ? '♥ Saved' : '♡ Save for later'}</button>
+  return (
+    <button className="btn btn-outline" onClick={save}>
+      {saved ? '♥ Saved' : '♡ Save for later'}
+    </button>
+  )
 }

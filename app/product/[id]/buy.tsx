@@ -24,17 +24,24 @@ export function Buy({ productId }: { productId: string }) {
   }
 
   return (
-    <div className="buy">
-      <p>{stock}</p>
-      <select value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} aria-label="Quantity">
-        {[1, 2, 3, 5, 10, 20].map((n) => (
-          <option key={n}>{n}</option>
-        ))}
-      </select>{' '}
-      <button onClick={buy} disabled={busy}>
-        {busy ? 'Paying…' : 'Buy'}
-      </button>
-      <p>{result}</p>
-    </div>
+    <section className="buy panel">
+      <p className={stock.endsWith('in stock') ? 'stock-ok' : 'muted'}>{stock}</p>
+      <div className="buy-row">
+        <label>
+          Quantity
+          <select className="field" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} aria-label="Quantity">
+            {[1, 2, 3, 5, 10, 20].map((n) => (
+              <option key={n}>{n}</option>
+            ))}
+          </select>
+        </label>
+        <button className="btn btn-primary" onClick={buy} disabled={busy}>
+          {busy ? 'Paying…' : 'Buy'}
+        </button>
+      </div>
+      <p className={`result ${result === 'Payment failed' ? 'failed' : 'paid'}`} aria-live="polite">
+        {result}
+      </p>
+    </section>
   )
 }
