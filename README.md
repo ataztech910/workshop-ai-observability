@@ -13,6 +13,15 @@ is never a dependency of the app.
   - a Gemini API key (`GEMINI_API_KEY` + `GEMINI_MODEL`), **or**
   - the Claude Code or Codex CLI logged in — used through Kitana, no API key needed
 
+One command — it clones the shop (when you have no clone yet), installs it, checks your machine and starts the shop:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ataztech910/workshop-ai-observability/master/start.sh | bash
+# in a clone:  ./start.sh          · the day before, without starting the shop:  ./start.sh --check
+```
+
+The same by hand (and on Windows without Git Bash):
+
 ```bash
 npm install       # the app
 npm run doctor    # downloads the observer and everything the blocks add, checks the rest, says how to fix what is missing
