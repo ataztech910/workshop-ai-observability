@@ -1,5 +1,6 @@
 // `npm run dev:v1` / `npm run dev:v2` — run the app as a given "deployment" against a separately running observer
-// (`npm run observer`), so switching versions keeps the telemetry history — like a real deploy.
+// (`npm run observer`) or, in blocks 2–4, your own receiver (`npm run receiver`), so switching versions keeps the
+// telemetry history — like a real deploy.
 // v2 is the newer build; every span carries its version (service.version). Cross-platform.
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
@@ -10,7 +11,7 @@ const endpoint = process.env.OBSERVE_ENDPOINT ?? 'http://127.0.0.1:4318'
 
 const observer = await fetch(`${endpoint}/health`).then((r) => r.ok, () => false)
 if (!observer) {
-  console.error(`No observer at ${endpoint} — start it first in another terminal:  npm run observer`)
+  console.error(`Nothing listening at ${endpoint} — start it first in another terminal:  npm run receiver  (blocks 2–4)  or  npm run observer`)
   process.exit(1)
 }
 
