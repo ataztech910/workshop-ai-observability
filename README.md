@@ -19,28 +19,39 @@ npm run doctor    # downloads the observer and everything the blocks add, checks
 ```
 
 Do this before the workshop — conference Wi-Fi is slow. After `npm run doctor` says "All set", the whole workshop
-works without a network: the observer, `npx next-observer init` in block 2, and catching up to any block.
+works without a network: the observer, `npm install next-observe` in block 3, and catching up to any block.
 
 ## Workshop blocks
 
-You start with a plain Next.js app — no telemetry at all.
+You start with a plain Next.js app — no telemetry at all. First you take telemetry apart piece by piece, by hand; the
+observer comes last, as the tool that does all of it for you and lets AI agents work on it.
 
 | Block | You do | Fell behind? |
 |---|---|---|
-| 2 — Connect | `npx next-observer init`, then `npm run observe` → traces from the server and the browser | `git stash -u && git checkout -B workshop block-2-init && npm install` |
-| 3 — Instrumentation | `'use observe'` in `lib/`, a span of your own | `git stash -u && git checkout -B workshop block-3-instrumentation && npm install` |
-| 4 — AI agents | your own AI agent in `observe.agents.ts`, scheduled checks in `observe.checks.ts` | `git stash -u && git checkout -B workshop block-4-agents && npm install` |
+| 0 — Prologue | use the shop and count the bugs you notice | — |
+| 2 — OTLP by hand | `npm run receiver` (your own OTLP receiver on port 4318), send `tools/span.json` with `curl`, finish `tools/print-spans.mjs` | `npm run receiver -- --solution` |
+| 3 — Instrumentation | `npm install next-observe` and three files: `instrumentation.ts`, `instrumentation-client.ts`, `withObserve()` in `next.config.ts`; a span of your own in checkout; `'use observe'` in `lib/` | `git stash -u && git checkout -B workshop block-3-instrumentation && npm install` |
+| 4 — Cases | find six bugs in the raw spans: `npm run case <name>` (run it without a name for the list) | nothing to catch up — the scripts are in `tools/cases/` |
+| 5 — The observer | stop the receiver, `npm run observer`; scheduled checks in `observe.checks.ts`, your own AI agent in `observe.agents.ts` | `git stash -u && git checkout -B workshop block-5-observer && npm install` |
 
 `git stash -u` keeps your own changes (`git stash pop` brings them back); `git checkout -B workshop <tag>` puts the
 block's state on your own branch `workshop`; `npm install` because a block may add a dependency. Back to the very
-start: `git checkout -B workshop block-2-start`.
-
-## Two "deployments" (from block 2 on)
-
-Keep the observer running on its own, so switching versions keeps the telemetry history — like a real deploy.
+start: `git checkout -B workshop block-0-start`.
 
 ```bash
-# terminal 1 — observer (add OBSERVE_AI=real for a real model; default is a mock model)
+# block 2: send a span by hand
+curl -X POST localhost:4318/v1/traces -H 'content-type: application/json' -d @tools/span.json
+```
+
+## Two "deployments" (blocks 4 and 5)
+
+Keep the receiver (block 4) or the observer (block 5) running on its own, so switching versions keeps the telemetry
+history — like a real deploy.
+
+```bash
+# terminal 1 — block 4: your receiver
+npm run receiver
+# terminal 1 — block 5: the observer instead (add OBSERVE_AI=real for a real model; default is a mock model)
 npm run observer
 
 # terminal 2 — the shop as version v1
@@ -50,9 +61,10 @@ npm run dev:v1
 npm run load 40
 ```
 
-Then "deploy" v2: stop terminal 2 (Ctrl+C), run `npm run dev:v2`, and `npm run load 40` again.
+Then "deploy" v2: stop terminal 2 (Ctrl+C), run `npm run dev:v2`, and `npm run load 40` again. In block 4,
+`npm run case regression` compares the versions.
 
-Open http://127.0.0.1:4318/chat and ask, for example:
+In block 5, open http://127.0.0.1:4318/chat and ask, for example:
 
 - *Checkout is slow. What's causing it and which deployment introduced it?*
 - *There are 500 errors on product pages. Which operation is failing and why?*
@@ -61,7 +73,7 @@ Open http://127.0.0.1:4318/chat and ask, for example:
 Leave the chat open while traffic runs: when the observer detects an anomaly, the AI agents start investigating without
 being asked.
 
-From block 4 the observer also asks the shop itself, every 10 seconds, whether five things are still true
+From block 5 the observer also asks the shop itself, every 10 seconds, whether five things are still true
 (`observe.checks.ts`) — see http://127.0.0.1:4318/checks. Run the shop as v1, then as v2, and watch
 "checkout takes under a second": it fails without any traffic, and the AI agents are sent to look.
 
