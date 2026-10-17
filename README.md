@@ -19,52 +19,54 @@ npm run doctor    # downloads the observer and everything the blocks add, checks
 ```
 
 Do this before the workshop — conference Wi-Fi is slow. After `npm run doctor` says "All set", the whole workshop
-works without a network: the observer, `npm install next-observe` in block 3, and catching up to any block.
+works without a network: the observer, `npm install next-observe` in part 2, and catching up to any part.
 
-## Workshop blocks
+## Workshop parts
 
-You start with a plain Next.js app — no telemetry at all. First you take telemetry apart piece by piece, by hand; the
-observer comes last, as the tool that does all of it for you and lets AI agents work on it.
+You start with a plain Next.js app — no telemetry at all. First you take telemetry apart in small pieces, by hand; then
+the observer shows all of it in seconds; then AI agents work on it.
 
-| Block | You do | Fell behind? |
+| Part | You do | Fell behind? |
 |---|---|---|
-| 0 — Prologue | use the shop and count the bugs you notice | — |
-| 2 — OTLP by hand | `npm run receiver` (your own OTLP receiver on port 4318), send `tools/span.json` with `curl`, finish `tools/print-spans.mjs` | `npm run receiver -- --solution` |
-| 3 — Instrumentation | `npm install next-observe` and three files: `instrumentation.ts`, `instrumentation-client.ts`, `withObserve()` in `next.config.ts`; a span of your own in checkout; `'use observe'` in `lib/` | `git stash -u && git checkout -B workshop block-3-instrumentation && npm install` |
-| 4 — Cases | find six bugs in the raw spans: `npm run case <name>` (run it without a name for the list) | nothing to catch up — the scripts are in `tools/cases/` |
-| 5 — The observer | stop the receiver, `npm run observer`; scheduled checks in `observe.checks.ts`, your own AI agent in `observe.agents.ts` | `git stash -u && git checkout -B workshop block-5-observer && npm install` |
+| 1 — Theory | use the shop and count the bugs you notice | — |
+| 2 — OpenTelemetry by hand | `npm run receiver` (your own OTLP receiver on port 4318) and finish `tools/print-spans.mjs`; send `tools/span.json` with `curl`; `npm install next-observe` and three files (`instrumentation.ts`, `instrumentation-client.ts`, `withObserve()` in `next.config.ts`); a span of your own in checkout; `'use observe'` in `lib/`; finish `tools/cases/rejected.mjs` and run `npm run case checkout-400` | `npm run receiver -- --solution` · `git stash -u && git checkout -B workshop block-3-instrumentation && npm install` · `npm run case checkout-400 -- --solution` |
+| 3 — The observer | stop the receiver, `npm run observer` — same port, the app does not change | — |
+| 4 — What arrives | two "deployments" with customers (below); find the six bugs in the observer; fix one; scheduled checks in `observe.checks.ts` | `git stash -u && git checkout -B workshop block-5-observer && npm install` |
+| 5 — AI | your own AI agent in `observe.agents.ts` | same as part 4 |
 
 `git stash -u` keeps your own changes (`git stash pop` brings them back); `git checkout -B workshop <tag>` puts the
-block's state on your own branch `workshop`; `npm install` because a block may add a dependency. Back to the very
-start: `git checkout -B workshop block-0-start`.
+state on your own branch `workshop`; `npm install` because a tag may add a dependency. Back to the very start:
+`git checkout -B workshop block-0-start`.
 
 ```bash
-# block 2: send a span by hand
+# part 2: send a span by hand
 curl -X POST localhost:4318/v1/traces -H 'content-type: application/json' -d @tools/span.json
 ```
 
-## Two "deployments" (blocks 4 and 5)
+The other case scripts (`npm run case` lists them) find the remaining bugs in the raw spans — there to explore.
 
-Keep the receiver (block 4) or the observer (block 5) running on its own, so switching versions keeps the telemetry
-history — like a real deploy.
+## Customers and two "deployments" (part 4)
+
+Keep the observer running on its own, so switching versions keeps the telemetry history — like a real deploy.
 
 ```bash
-# terminal 1 — block 4: your receiver
-npm run receiver
-# terminal 1 — block 5: the observer instead (add OBSERVE_AI=real for a real model; default is a mock model)
+# terminal 1 — the observer (add OBSERVE_AI=real for a real model; default is a mock model)
 npm run observer
 
 # terminal 2 — the shop as version v1
 npm run dev:v1
 
-# terminal 3 — traffic
+# terminal 3 — customers in a browser (they cause the browser bugs) and server traffic
+npm run users 60
 npm run load 40
 ```
 
-Then "deploy" v2: stop terminal 2 (Ctrl+C), run `npm run dev:v2`, and `npm run load 40` again. In block 4,
-`npm run case regression` compares the versions.
+Then "deploy" v2: stop terminal 2 (Ctrl+C), run `npm run dev:v2`, and the same traffic again.
 
-In block 5, open http://127.0.0.1:4318/chat and ask, for example:
+`npm run users [seconds]` drives your installed Google Chrome (nothing is downloaded): `USERS=5` for more customers at
+once, `HEADED=1` to watch them. `npm run receiver` works in terminal 1 as well, for the case scripts.
+
+In parts 4 and 5, open http://127.0.0.1:4318/chat and ask, for example:
 
 - *Checkout is slow. What's causing it and which deployment introduced it?*
 - *There are 500 errors on product pages. Which operation is failing and why?*
@@ -73,7 +75,7 @@ In block 5, open http://127.0.0.1:4318/chat and ask, for example:
 Leave the chat open while traffic runs: when the observer detects an anomaly, the AI agents start investigating without
 being asked.
 
-From block 5 the observer also asks the shop itself, every 10 seconds, whether five things are still true
+From part 4 the observer also asks the shop itself, every 10 seconds, whether five things are still true
 (`observe.checks.ts`) — see http://127.0.0.1:4318/checks. Run the shop as v1, then as v2, and watch
 "checkout takes under a second": it fails without any traffic, and the AI agents are sent to look.
 
@@ -83,5 +85,6 @@ From block 5 the observer also asks the shop itself, every 10 seconds, whether f
 |---|---|---|
 | `OBSERVE_AI` | `mock` | `real` = Gemini (with `GEMINI_API_KEY` + `GEMINI_MODEL`) or Kitana |
 | `OBSERVE_DETECTOR` | on | `off` disables the anomaly detector |
-| `BASE_URL` | `http://localhost:3000` | where `npm run load` sends traffic — set it if the shop runs on another port |
+| `BASE_URL` | `http://localhost:3000` | where `npm run load` and `npm run users` go — set it if the shop runs on another port |
 | `RPS` | `3` | requests per second for `npm run load` |
+| `USERS` | `3` | customers at once for `npm run users` (`HEADED=1` to watch them) |
