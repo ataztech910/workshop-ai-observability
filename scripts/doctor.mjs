@@ -40,8 +40,8 @@ const installed = (name) => {
 const next = installed('next')
 const nextObserve = installed('next-observe')
 if (!next) fail('dependencies are not installed', 'run `npm install` in this folder')
-// You install next-observe yourself in block 3 — not having it yet is the starting point, not a problem.
-else ok(`npm install done (next ${next}${nextObserve ? `, next-observe ${nextObserve}` : ', next-observe comes in block 3'})`)
+// You install next-observe yourself in part 2 — not having it yet is the starting point, not a problem.
+else ok(`npm install done (next ${next}${nextObserve ? `, next-observe ${nextObserve}` : ', next-observe comes in part 2'})`)
 
 // 3. The observer is downloaded — `npm run dev` / `npm run observer` start it with npx, which needs the network once.
 // Through the network on purpose (no --prefer-offline): this runs at home and should pick up the newest observer.
@@ -104,7 +104,7 @@ if (Object.values(sources).some((r) => r.status !== 0)) {
     writeFileSync(join(tmp, 'package.json'), sources.lastPkg.stdout)
     writeFileSync(join(tmp, 'package-lock.json'), sources.lastLock.stdout)
     const likeCatchUp = npm(['ci'])
-    if (likeInit && likeCatchUp) ok('the blocks work without Wi-Fi (their packages are in npm\'s cache)')
+    if (likeInit && likeCatchUp) ok('every part works without Wi-Fi (the packages are in npm\'s cache)')
     else cannotDownload()
   } catch (error) {
     cannotDownload(error instanceof Error ? error.message : String(error))
@@ -118,7 +118,18 @@ if (Object.values(sources).some((r) => r.status !== 0)) {
   }
 }
 
-// 7. Real AI (optional): Gemini, or Kitana through a logged-in CLI.
+// 7. Google Chrome for `npm run users` (customers in a browser) — playwright-core drives the installed Chrome, so
+// nothing is downloaded. Optional: without it the browser bugs are still there to click by hand.
+try {
+  const { chromium } = await import('playwright-core')
+  const chrome = await chromium.launch({ channel: 'chrome', headless: true, timeout: 30_000 })
+  await chrome.close()
+  ok('Google Chrome for npm run users')
+} catch {
+  warn('Google Chrome not found — npm run users needs it', 'install it from https://www.google.com/chrome/ (or click through the shop by hand)')
+}
+
+// 8. Real AI (optional): Gemini, or Kitana through a logged-in CLI.
 const hasCli = (name) => run(name, ['--version'], 20_000).status === 0
 if (process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL) ok(`real AI: Gemini (${process.env.GEMINI_MODEL})`)
 else if (process.env.GEMINI_API_KEY) warn('GEMINI_API_KEY is set but GEMINI_MODEL is not', 'set GEMINI_MODEL too, e.g. GEMINI_MODEL=gemini-2.5-flash')
