@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "doctor": "node scripts/doctor.mjs",
+    "receiver": "node tools/receiver.mjs",
     "dev": "next dev",
     "observer": "npx --yes --prefer-offline next-observer@^0.3.26 collector",
     "dev:v1": "node scripts/dev.mjs v1",
