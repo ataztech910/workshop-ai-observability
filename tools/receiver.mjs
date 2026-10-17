@@ -9,10 +9,11 @@ import { appendFileSync, mkdirSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { gunzipSync } from 'node:zlib'
 
-const PORT = Number(process.env.RECEIVER_PORT ?? 4318)
-const FILE = '.telemetry/spans.ndjson'
+const PORT = 4318
+const DIR = new URL('../.telemetry/', import.meta.url) // in the repo root, wherever you start it from
+const FILE = new URL('spans.ndjson', DIR)
 const { printSpans } = await import(process.argv.includes('--solution') ? './solutions/print-spans.mjs' : './print-spans.mjs')
-mkdirSync('.telemetry', { recursive: true })
+mkdirSync(DIR, { recursive: true })
 
 createServer((req, res) => {
   // Like the observer: `npm run dev:v1` / `dev:v2` check that something is listening before they start the shop.
@@ -45,7 +46,7 @@ createServer((req, res) => {
 })
   .on('error', (error) => {
     const taken = error.code === 'EADDRINUSE'
-    console.error(taken ? `port ${PORT} is taken — stop the observer (or whatever listens there), or run RECEIVER_PORT=4319 npm run receiver` : error.message)
+    console.error(taken ? `port ${PORT} is taken — stop the observer (or whatever listens there): the app sends to ${PORT}` : error.message)
     process.exit(1)
   })
-  .listen(PORT, '127.0.0.1', () => console.log(`receiver  http://127.0.0.1:${PORT}/v1/traces → ${FILE}`))
+  .listen(PORT, '127.0.0.1', () => console.log(`receiver  http://127.0.0.1:${PORT}/v1/traces → .telemetry/spans.ndjson`))

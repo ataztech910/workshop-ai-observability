@@ -2,7 +2,7 @@
 // batches into a flat list of plain spans — the only thing every case script needs.
 import { readFileSync } from 'node:fs'
 
-const FILE = '.telemetry/spans.ndjson'
+const FILE = new URL('../../.telemetry/spans.ndjson', import.meta.url) // in the repo root
 const value = (v = {}) => v.stringValue ?? (v.intValue === undefined ? undefined : Number(v.intValue)) ?? v.doubleValue ?? v.boolValue
 const toObject = (attributes = []) => Object.fromEntries(attributes.map((a) => [a.key, value(a.value)]))
 
@@ -11,13 +11,21 @@ export function loadSpans() {
   try {
     text = readFileSync(FILE, 'utf8')
   } catch {
-    console.error(`no ${FILE} yet — start npm run receiver and use the shop first`)
+    console.error('no .telemetry/spans.ndjson yet — start npm run receiver and use the shop first')
     process.exit(1)
   }
   const spans = []
+  let broken = 0
   for (const line of text.split('\n')) {
     if (!line.trim()) continue
-    for (const { resource, scopeSpans = [] } of JSON.parse(line).resourceSpans ?? []) {
+    let batch
+    try {
+      batch = JSON.parse(line)
+    } catch {
+      broken++ // e.g. the receiver is writing this very line right now
+      continue
+    }
+    for (const { resource, scopeSpans = [] } of batch.resourceSpans ?? []) {
       const r = toObject(resource?.attributes)
       for (const { spans: list = [] } of scopeSpans) {
         for (const s of list) {
@@ -38,7 +46,19 @@ export function loadSpans() {
       }
     }
   }
+  if (broken) console.error(`(skipped ${broken} unreadable lines)`)
   return spans
+}
+
+/** Puts items into lists by key: groupBy(spans, (s) => s.traceId) → Map traceId → spans. */
+export function groupBy(items, key) {
+  const groups = new Map()
+  for (const item of items) {
+    const k = key(item)
+    if (!groups.has(k)) groups.set(k, [])
+    groups.get(k).push(item)
+  }
+  return groups
 }
 
 /** The value below which p percent of the values fall: p95 = 95% of requests were faster than this. */
