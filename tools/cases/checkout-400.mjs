@@ -1,12 +1,12 @@
 // Case 2. "Payment failed" — the browser got a 400. Why? Find the failed requests, then what the app itself recorded
-// in the same trace: the reason is there only if somebody put it on a span (block 3).
-import { groupBy, loadSpans } from './spans.mjs'
+// on the server in the same trace: the reason is there only if somebody put it on a span (block 3).
+import { loadSpans } from './spans.mjs'
 
-// What the instrumentation adds on its own (HTTP, URLs, code location) — not an explanation of anything.
-const AUTOMATIC = /^(http|url|server|next|code|observe|error)\.|^(operation|resource)\.name$/
+// What the server instrumentation adds on its own (HTTP, Next.js, code location) — not an explanation of anything.
+const AUTOMATIC = /^(http|next|code|observe)\.|^(operation|resource)\.name$/
 
-const spans = loadSpans()
-const byTrace = groupBy(spans, (s) => s.traceId)
+const spans = loadSpans().filter((s) => !s.service?.endsWith('-browser'))
+const byTrace = Map.groupBy(spans, (s) => s.traceId)
 const rejected = spans.filter((s) => s.kind === 2 && s.attributes['http.route'] === '/api/checkout' && s.attributes['http.status_code'] === 400)
 console.log(`${rejected.length} rejected orders\n`)
 for (const request of rejected) {
