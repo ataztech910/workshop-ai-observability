@@ -90,11 +90,15 @@ h1, h2 { font-family: var(--font-display); font-weight: 400; margin: 0; line-hei
 .search-results a { display: flex; justify-content: space-between; border-radius: 0.5rem; padding: 0.5rem 0.75rem; text-decoration: none; }
 .search-results a:hover { background: var(--muted); }
 .products { list-style: none; padding: 0; margin: 2.5rem 0 0; display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); }
-.product-card { overflow: hidden; }
-.product-card img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+.product-card { display: block; height: 100%; overflow: hidden; text-decoration: none; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; }
+.product-card img { width: 100%; aspect-ratio: 1; object-fit: cover; transition: transform 0.3s; }
 .product-card div { padding: 1rem; }
-.product-card a { font-weight: 600; text-decoration: none; }
-.product-card a:hover { color: var(--primary); text-decoration: underline; text-underline-offset: 4px; }
+.product-name { font-weight: 600; transition: color 0.15s; }
+/* Hover and keyboard focus: the card lifts, its shadow grows, the frame and the name turn orange. */
+.product-card:hover, .product-card:focus-visible { transform: translate(-3px, -3px); box-shadow: 9px 9px 0 0 oklch(0.12 0.04 255); border-color: var(--primary); outline: none; }
+.product-card:hover img, .product-card:focus-visible img { transform: scale(1.05); }
+.product-card:hover .product-name, .product-card:focus-visible .product-name { color: var(--primary); }
+.product-card:active { transform: translate(2px, 2px); box-shadow: var(--shadow-pop); }
 .price { margin: 0.25rem 0 0; font-family: var(--font-display); font-size: 1.25rem; color: var(--primary); }
 
 /* ----- product page ----- */

@@ -16,12 +16,15 @@ export default async function CatalogPage() {
       <Search />
       <ul className="products">
         {products.map((p) => (
-          <li key={p.id} className="product-card panel">
-            <img src={`/products/${p.id}.jpg`} alt="" width={816} height={816} loading="lazy" />
-            <div>
-              <Link href={`/product/${p.id}`}>{p.name}</Link>
-              <p className="price">{price(p.priceCents)}</p>
-            </div>
+          <li key={p.id}>
+            {/* The whole card is the link: picture, name and price. */}
+            <Link href={`/product/${p.id}`} className="product-card panel">
+              <img src={`/products/${p.id}.jpg`} alt="" width={816} height={816} loading="lazy" />
+              <div>
+                <span className="product-name">{p.name}</span>
+                <p className="price">{price(p.priceCents)}</p>
+              </div>
+            </Link>
           </li>
         ))}
       </ul>
