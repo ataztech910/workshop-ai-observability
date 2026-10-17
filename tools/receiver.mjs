@@ -15,6 +15,8 @@ const { printSpans } = await import(process.argv.includes('--solution') ? './sol
 mkdirSync('.telemetry', { recursive: true })
 
 createServer((req, res) => {
+  // Like the observer: `npm run dev:v1` / `dev:v2` check that something is listening before they start the shop.
+  if (req.method === 'GET' && req.url === '/health') return res.writeHead(200, { 'content-type': 'application/json' }).end('{"status":"ok"}')
   if (req.method !== 'POST' || !req.url?.startsWith('/v1/traces')) return res.writeHead(404).end()
   // OTLP also comes as protobuf (application/x-protobuf); next-observe sends JSON, and JSON is what we can read.
   if (!String(req.headers['content-type']).includes('json')) return res.writeHead(415).end('this receiver reads OTLP/JSON only')
