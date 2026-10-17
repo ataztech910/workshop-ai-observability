@@ -6,11 +6,13 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-// At least the version with scheduled checks (block 4). A range with a patch number also keeps an older copy in
+// At least the version with scheduled checks (block 5). A range with a patch number also keeps an older copy in
 // npm's cache from being picked.
 const OBSERVER = 'next-observer@^0.3.26'
+// The standard OTLP port: your receiver listens there in blocks 2–4, the observer takes it over in block 5.
 const OBSERVER_PORT = 4318
-const TAGS = ['block-2-start', 'block-2-init', 'block-3-instrumentation', 'block-4-agents']
+// The catch-up points. block-6-incident-f is the instructor's demo, not needed on your machine.
+const TAGS = ['block-0-start', 'block-3-instrumentation', 'block-5-observer']
 const root = process.cwd()
 const isWindows = process.platform === 'win32'
 
@@ -38,8 +40,8 @@ const installed = (name) => {
 const next = installed('next')
 const nextObserve = installed('next-observe')
 if (!next) fail('dependencies are not installed', 'run `npm install` in this folder')
-// next-observe comes with `npx next-observer init` in block 2 — not having it yet is the starting point, not a problem.
-else ok(`npm install done (next ${next}${nextObserve ? `, next-observe ${nextObserve}` : ', next-observe comes with init in block 2'})`)
+// You install next-observe yourself in block 3 — not having it yet is the starting point, not a problem.
+else ok(`npm install done (next ${next}${nextObserve ? `, next-observe ${nextObserve}` : ', next-observe comes in block 3'})`)
 
 // 3. The observer is downloaded — `npm run dev` / `npm run observer` start it with npx, which needs the network once.
 // Through the network on purpose (no --prefer-offline): this runs at home and should pick up the newest observer.
@@ -47,35 +49,35 @@ const observer = run('npx', ['--yes', OBSERVER, '--help'], 180_000)
 if (observer.status === 0) ok(`observer ready (${OBSERVER})`)
 else fail('the observer could not be downloaded or started', `run \`npx --yes ${OBSERVER} --help\` while online and read its error`)
 
-// 4. Its port is free — or the observer is already running there, which is fine.
+// 4. Its port is free — or the observer or your receiver is already running there, which is fine.
 const portFree = await new Promise((resolve) => {
   const server = createServer()
   server.once('error', () => resolve(false))
   server.listen(OBSERVER_PORT, '127.0.0.1', () => server.close(() => resolve(true)))
 })
-if (portFree) ok(`port ${OBSERVER_PORT} is free for the observer`)
+if (portFree) ok(`port ${OBSERVER_PORT} is free for your receiver and the observer`)
 else {
-  // Recognise the observer by its /health body, not just a 200: any web server answers 200 somewhere.
-  // With a timeout: a hung program on the port must not hang the check.
+  // Recognise ours by the /health body, not just a 200: any web server answers 200 somewhere. The observer also counts
+  // its spans; tools/receiver.mjs says only {"status":"ok"}. With a timeout: a hung program must not hang the check.
   const health = await fetch(`http://127.0.0.1:${OBSERVER_PORT}/health`, { signal: AbortSignal.timeout(3000) })
     .then((r) => r.json())
-    .then((body) => body?.status === 'ok' && typeof body.spans === 'number', () => false)
-  if (health) ok(`the observer is already running on port ${OBSERVER_PORT}`)
-  else fail(`port ${OBSERVER_PORT} is used by another program`, `stop it, or start the observer on another port: \`npx ${OBSERVER} collector --port 4319\` (and OBSERVE_ENDPOINT=http://127.0.0.1:4319)`)
+    .then((body) => (body?.status !== 'ok' ? undefined : typeof body.spans === 'number' ? 'the observer' : 'your receiver'), () => undefined)
+  if (health) ok(`${health} is already running on port ${OBSERVER_PORT}`)
+  else fail(`port ${OBSERVER_PORT} is used by another program`, `stop it — the app sends its telemetry to ${OBSERVER_PORT}, where your receiver (blocks 2–4) and the observer (block 5) listen`)
 }
 
 // 5. The block tags, to catch up during the workshop.
 if (existsSync(join(root, '.git'))) {
   const tags = run('git', ['tag', '--list', 'block-*']).stdout?.split(/\r?\n/).filter(Boolean) ?? []
   const missing = TAGS.filter((t) => !tags.includes(t))
-  if (missing.length === 0) ok('workshop tags present (block-2-start … block-4-agents)')
+  if (missing.length === 0) ok(`workshop tags present (${TAGS.join(', ')})`)
   else fail(`missing git tags: ${missing.join(', ')}`, 'run `git fetch --tags`')
 } else warn('not a git clone — catching up with tags will not work', 'clone the repository with git instead of downloading a zip')
 
 // 6. Everything the blocks add is in npm's cache, so the workshop does not depend on the Wi-Fi. Two things are needed,
 // and both are done once in a temporary folder that is removed afterwards:
-//   - block 2's `npx next-observer init` runs `npm install next-observe`: without a lockfile entry npm has to look up
-//     which versions exist, so the same command is run here from the starting state — that caches the lookups;
+//   - in block 3 you run `npm install next-observe`: without a lockfile entry npm has to look up which versions exist,
+//     so the same command is run here from the starting state — that caches the lookups;
 //   - catching up (`git checkout -B workshop <tag> && npm install`) installs exactly what the tag's lockfile names, so
 //     the last block's dependency tree is installed too — that caches every package file.
 const START = TAGS[0]
@@ -95,7 +97,7 @@ if (Object.values(sources).some((r) => r.status !== 0)) {
     const npm = (args) => run('npm', [...args, '--ignore-scripts', '--no-audit', '--no-fund'], 600_000, tmp).status === 0
     writeFileSync(join(tmp, 'package.json'), sources.startPkg.stdout)
     writeFileSync(join(tmp, 'package-lock.json'), sources.startLock.stdout)
-    // What the blocks add on top of the start: next-observe (block 2, by init) and the OpenTelemetry API (block 3).
+    // What the blocks add on top of the start: next-observe and the OpenTelemetry API (block 3).
     const startDeps = JSON.parse(sources.startPkg.stdout).dependencies ?? {}
     const added = Object.keys(JSON.parse(sources.lastPkg.stdout).dependencies ?? {}).filter((name) => !(name in startDeps))
     const likeInit = added.length === 0 || npm(['install', ...added])
