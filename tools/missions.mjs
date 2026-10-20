@@ -20,6 +20,8 @@ const app = JSON.parse(read('package.json') || '{}')
 const spans = loadSpans({ quiet: true })
 const fromShop = spans.filter((s) => s.service === app.name)
 const fromBrowser = spans.filter((s) => s.service === `${app.name}-browser`)
+const ROUTE = 'app/api/checkout/route.ts'
+const placeOrders = fromShop.filter((s) => s.name === 'placeOrder')
 
 const MISSIONS = [
   {
@@ -75,6 +77,47 @@ const MISSIONS = [
         what: 'terminal readable',
         ok: () => active('tools/print-spans.mjs', /if \(NOISE\.has\(scope\?\.name\)/),
         hint: 'tools/print-spans.mjs — uncomment the noise-filter ▶ line: Next.js sends a dozen spans per page',
+      },
+    ],
+  },
+  {
+    title: 'A span of your own — make the 400 say why',
+    done: [
+      'the 400 says why now — a reason no automatic instrumentation could know.',
+      'Your code knows the business; a span of your own puts that knowledge where the telemetry is.',
+    ],
+    goals: [
+      {
+        what: 'the API',
+        ok: () => active(ROUTE, /import \{ trace \} from '@opentelemetry\/api'/),
+        hint: `${ROUTE} — uncomment the import ▶ line`,
+      },
+      {
+        what: 'the span',
+        ok: () => active(ROUTE, /span = trace\.getTracer\('porto-shop'\)\.startSpan\('placeOrder'\)/),
+        hint: `${ROUTE} — uncomment the startSpan ▶ line`,
+      },
+      {
+        what: 'order.quantity',
+        ok: () => active(ROUTE, /span\.setAttribute\('order\.quantity'/),
+        hint: `${ROUTE} — uncomment the order.quantity ▶ line`,
+      },
+      {
+        what: 'order.rejected',
+        ok: () => active(ROUTE, /span\.setAttribute\('order\.rejected'/),
+        hint: `${ROUTE} — uncomment the order.rejected ▶ line`,
+      },
+      {
+        what: 'placeOrder arrives',
+        ok: () => placeOrders.length > 0,
+        got: () => `${placeOrders.length} spans`,
+        hint: 'in the shop: buy anything (the dev server picks up the change on save)',
+      },
+      {
+        what: 'the reason arrives',
+        ok: () => placeOrders.some((s) => s.attributes['order.rejected']),
+        got: () => String(placeOrders.find((s) => s.attributes['order.rejected'])?.attributes['order.rejected'] ?? ''),
+        hint: 'in the shop: product 1 → Quantity 20 → Buy',
       },
     ],
   },
