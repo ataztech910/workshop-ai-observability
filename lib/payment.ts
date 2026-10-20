@@ -1,3 +1,9 @@
+// Mission 6 · 'use observe': uncomment the ▶ line (Cmd+/), then npm run mission 6.
+// 'use observe' // ▶
+//   Why: one line, and every function this file exports becomes a span — its name, how long it took, the file it
+//   lives in (code.filepath) and the exception if it throws. No tracer, no try/finally: it is added when the file
+//   is built.
+
 import { jitter } from './sleep'
 
 // Charges the card through the (simulated) payment provider. SHOP_VERSION is the deployed build, set by

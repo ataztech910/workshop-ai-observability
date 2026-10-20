@@ -1,9 +1,17 @@
-// Your part in case 2: which spans are rejected checkout requests?
+// Mission 7 · One case by hand: which spans are rejected checkout requests? Uncomment the three ▶ lines (Cmd+/),
+// then npm run case checkout-400 — and npm run mission 7.
 //
 // A span here is a plain object: { service, version, name, kind, traceId, spanId, parentSpanId, durationMs, error,
-// attributes, events }. kind 2 = SERVER — a request the app received. A server span of a request carries
-// attributes['http.route'] (like '/api/checkout') and attributes['http.status_code'] (like 400).
+// attributes, events }.
 export function isRejected(span) {
-  // TODO: return true for a SERVER span of /api/checkout that answered 400.
-  return false
+  const checks = []
+  // checks.push(span.kind === 2) // ▶
+  //   Why: kind 2 = SERVER, a request the shop received. The browser's own span of the same request is kind 3
+  //   (CLIENT) — without this line every rejected order is counted twice.
+  // checks.push(span.attributes['http.route'] === '/api/checkout') // ▶
+  //   Why: the route, not the URL — '/api/checkout' groups all requests to the same handler, whatever the query.
+  // checks.push(span.attributes['http.status_code'] === 400) // ▶
+  //   Why: 400 = the shop refused the request. Uncomment the lines one by one and run the case after each:
+  //   every line narrows the search.
+  return checks.length > 0 && checks.every(Boolean)
 }

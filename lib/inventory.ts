@@ -1,3 +1,7 @@
+// Mission 6 · 'use observe': uncomment the ▶ line (Cmd+/), then npm run mission 6.
+// 'use observe' // ▶
+//   Why: the stock check becomes a span — and when it throws, the span carries the exception.
+
 import { jitter } from './sleep'
 
 // Asks the (simulated) inventory service how many items are in stock.

@@ -2,9 +2,9 @@
 // "by-hand", the one in tools/span.json) and prints how far you are from the mission — the shop's own spans are
 // ignored. Nothing to change here.
 //
-// Mission 1 · "Your first span": Colony Sandy-9 cannot place an order, and Kevin's dashboard is all green. Be the
+// Mission 2 · "Your first span": Colony Sandy-9 cannot place an order, and Kevin's dashboard is all green. Be the
 //   app: edit tools/span.json until your receiver reports the failed order.
-// Mission 2 · "Make it a tree": the order failed inside the payment. Add a second span to tools/span.json — the
+// Mission 3 · "Make it a tree": the order failed inside the payment. Add a second span to tools/span.json — the
 //   payment, as a child of the checkout — until your receiver shows one trace with two levels.
 
 const value = (v = {}) => v.stringValue ?? v.intValue ?? v.doubleValue ?? v.boolValue
@@ -26,8 +26,9 @@ const nano = (text) => {
   }
 }
 
-/** Mission 1: what the one span must say, and where in the JSON it goes when it does not. */
-const FIRST_SPAN = {
+/** Mission 2: what the one span must say, and where in the JSON it goes when it does not. */
+export const FIRST_SPAN = {
+  number: 2,
   title: "report Sandy-9's failed order",
   done: ["Sandy-9's failed order is on record, with the reason.", 'Soon the shop will fill these fields by itself, thousands of times a second.'],
   goals: [
@@ -54,8 +55,9 @@ const FIRST_SPAN = {
   ],
 }
 
-/** Mission 2: the second span (the child) against the first one (the root). Hints carry the root's real ids. */
-const TREE = {
+/** Mission 3: the second span (the child) against the first one (the root). Hints carry the root's real ids. */
+export const TREE = {
+  number: 3,
   title: 'show where the order failed — make it a tree',
   done: [
     'one trace, two levels: the payment failed inside the checkout.',
@@ -104,23 +106,29 @@ function report(mission, subject, root) {
   const results = mission.goals.map((g) => ({ ...g, done: g.ok(subject, root) }))
   const done = results.filter((r) => r.done).length
   if (done === results.length) {
-    console.log(paint(33, `★ Mission complete — ${mission.done[0]}`))
+    console.log(paint(33, `★ Mission ${mission.number} complete — ${mission.done[0]}`))
     for (const line of mission.done.slice(1)) console.log(paint(33, `  ${line}`))
     return
   }
-  console.log(paint(33, `mission · ${mission.title}  ${done}/${results.length}`))
+  console.log(paint(33, `mission ${mission.number} · ${mission.title}  ${done}/${results.length}   (all of it: npm run mission ${mission.number})`))
   for (const r of results) {
     const mark = r.done ? paint(32, '✓') : paint(31, '✗')
     console.log(`  ${mark} ${r.what.padEnd(15)} ${String(r.got(subject, root)).padEnd(24)} ${r.done ? '' : paint(2, `← ${r.hint(root)}`)}`)
   }
 }
 
-export function checkMission(batch) {
+/** The spans you sent by hand in this batch (scope "by-hand"), and which of them is the root. */
+export function handSpans(batch) {
   const spans = (batch.resourceSpans ?? []).flatMap((r) => (r.scopeSpans ?? []).filter((s) => s.scope?.name === 'by-hand').flatMap((s) => s.spans ?? []))
-  if (spans.length === 0) return
   // The root is the span without a parent; the first one if you have not set parentSpanId on any yet.
   const root = spans.find((s) => !s.parentSpanId) ?? spans[0]
+  return { spans, root, child: spans.find((s) => s !== root) }
+}
+
+export function checkMission(batch) {
+  const { spans, root } = handSpans(batch)
+  if (spans.length === 0) return
   if (spans.length === 1) return report(FIRST_SPAN, root, root)
-  // Two or more spans: mission 2, on the first span that is not the root.
+  // Two or more spans: mission 3, on the first span that is not the root.
   report(TREE, spans.find((s) => s !== root), root)
 }
