@@ -8,6 +8,8 @@ const attr = (attributes = [], key) => value(attributes.find((a) => a.key === ke
 const NOISE = new Set(['next.js', '@opentelemetry/instrumentation-document-load'])
 // Colours in a terminal, plain text anywhere else.
 const paint = (code, text) => (process.stdout.isTTY ? `\x1b[${code}m${text}\x1b[0m` : text)
+// One span, one line: long attribute lists are cut to the terminal's width.
+const clip = (text, width) => (text.length > width ? `${text.slice(0, Math.max(0, width - 1))}…` : text)
 
 export function printSpans(batch) {
   for (const { resource, scopeSpans = [] } of batch.resourceSpans ?? []) {
@@ -32,9 +34,10 @@ export function printSpans(batch) {
         //   ends up here — this is what an "error rate" is counted from.
 
         let details = ''
-        details = (span.attributes ?? []).map((a) => `${a.key}=${value(a.value)}`).join(' ')
+        details = (span.attributes ?? []).filter((a) => !a.key.startsWith('next.')).map((a) => `${a.key}=${value(a.value)}`).join(' ')
         //   Why: attributes are where a span says WHY — the route, the status code, the quantity, the reason an order
         //   was refused. Name, time and status tell you that something failed; attributes tell you what to fix.
+        //   (next.* are Next.js's notes about itself — skipped.)
 
         if (NOISE.has(scope?.name) && span.kind !== 2 && !error) { hidden++; continue }
         //   Why: scope.name says which library made the span. Next.js alone makes a dozen per page; keep only
@@ -45,11 +48,13 @@ export function printSpans(batch) {
         //   Why: parentSpanId is what turns separate spans into a tree — a trace. No parent = the root, the request.
 
         const status = error ? paint(31, 'ERROR') : paint(32, 'ok   ')
-        lines.push(`  ${(indent + span.name).padEnd(30)} ${ms.toFixed(1).padStart(8)} ms  ${status}  ${paint(2, details)}`)
+        const head = `  ${(indent + span.name).padEnd(30)} ${ms.toFixed(1).padStart(8)} ms  `
+        lines.push(`${head}${status}  ${paint(2, clip(details, (process.stdout.columns || 160) - head.length - 8))}`)
       }
     }
 
-    const count = `${lines.length} ${lines.length === 1 ? 'span' : 'spans'}${hidden ? `, ${hidden} noise hidden` : ''}`
+    const shown = lines.length ? `${lines.length} ${lines.length === 1 ? 'span' : 'spans'}` : 'nothing to show'
+    const count = `${shown}${hidden ? `, ${hidden} noise hidden` : ''}`
     console.log(paint(36, `── ${new Date().toLocaleTimeString('en-GB')} · ${who.trim()} · ${count} ──`))
     for (const line of lines) console.log(line)
   }

@@ -6,11 +6,13 @@ const FILE = new URL('../../.telemetry/spans.ndjson', import.meta.url) // in the
 const value = (v = {}) => v.stringValue ?? (v.intValue === undefined ? undefined : Number(v.intValue)) ?? v.doubleValue ?? v.boolValue
 const toObject = (attributes = []) => Object.fromEntries(attributes.map((a) => [a.key, value(a.value)]))
 
-export function loadSpans() {
+/** `quiet`: no file yet → an empty list instead of exiting (for npm run mission, which explains it itself). */
+export function loadSpans({ quiet = false } = {}) {
   let text
   try {
     text = readFileSync(FILE, 'utf8')
   } catch (error) {
+    if (quiet && error.code === 'ENOENT') return []
     console.error(error.code === 'ENOENT' ? 'no .telemetry/spans.ndjson yet — start npm run receiver and use the shop first' : error.message)
     process.exit(1)
   }
@@ -47,7 +49,7 @@ export function loadSpans() {
       broken++
     }
   }
-  if (broken) console.error(`(skipped ${broken} unreadable lines or spans)`)
+  if (broken && !quiet) console.error(`(skipped ${broken} unreadable lines or spans)`)
   return spans
 }
 
