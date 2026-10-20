@@ -41,6 +41,7 @@ function start(printSpans) {
     })
     req.on('error', () => res.destroy()) // the sender went away mid-request: nothing to answer
     req.on('end', () => {
+      if (chunks.length === 0) return res.writeHead(501).end('501 — no body kept: uncomment the first ▶ line (chunks.push)\n')
       let batch
       try {
         // batch = decode(Buffer.concat(chunks), req.headers) // ▶
@@ -65,7 +66,8 @@ function start(printSpans) {
 
       // return res.writeHead(200, { 'content-type': 'application/json' }).end('{}') // ▶
       //   Why: the sender waits for this answer. In OTLP, success is an empty response `{}` with status 200;
-      //   without it the app's APM agent counts the batch as lost and keeps retrying.
+      //   anything else and the app's APM agent counts the batch as failed — it retries only on 429 or 502–504,
+      //   every other answer and the batch is dropped for good.
       res.writeHead(501).end('501 — the receiver read the batch but does not answer yet: uncomment the last ▶ line\n')
     })
   })
