@@ -29,7 +29,7 @@ const GOALS = [
     what: 'order.rejected',
     ok: (s) => String(attr(s.attributes, 'order.rejected') ?? '').length > 0,
     got: (s) => String(attr(s.attributes, 'order.rejected') ?? 'missing'),
-    hint: 'the reason, as text: "order.rejected" = "quantity 20 > limit 10"',
+    hint: 'the reason, as text: { "key": "order.rejected", "value": { "stringValue": "quantity 20 > limit 10" } }',
   },
 ]
 
