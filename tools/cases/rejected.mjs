@@ -6,8 +6,8 @@
 export function isRejected(span) {
   const checks = []
   // checks.push(span.kind === 2) // ▶
-  //   Why: kind 2 = SERVER, a request the shop received. The browser's own span of the same request is kind 3
-  //   (CLIENT) — without this line every rejected order is counted twice.
+  //   Why: kind 2 = SERVER — a request the shop received, not a function or a query inside it. Run the case now:
+  //   every request matches. The next two lines narrow it down.
   // checks.push(span.attributes['http.route'] === '/api/checkout') // ▶
   //   Why: the route, not the URL — '/api/checkout' groups all requests to the same handler, whatever the query.
   // checks.push(span.attributes['http.status_code'] === 400) // ▶

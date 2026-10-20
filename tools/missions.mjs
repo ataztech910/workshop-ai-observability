@@ -26,22 +26,27 @@ const fromBrowser = spans.filter((s) => s.service === `${app.name}-browser`)
 const placeOrders = fromShop.filter((s) => s.name === 'placeOrder')
 const functionSpans = fromShop.filter((s) => String(s.attributes['code.filepath'] ?? '').includes('lib/'))
 // The last batch you sent by hand (missions 2 and 3), as raw OTLP — the shape you edit in span.json.
-const lastByHand = read('.telemetry/spans.ndjson')
-  .split('\n')
-  .reverse()
-  .map((line) => {
-    try {
-      return handSpans(JSON.parse(line))
-    } catch {
-      return { spans: [] }
-    }
-  })
-  .find((h) => h.spans.length > 0)
+let lastByHand
+const lines = read('.telemetry/spans.ndjson').split('\n')
+for (let i = lines.length - 1; i >= 0 && !lastByHand; i--) {
+  if (!lines[i].includes('"by-hand"')) continue // a cheap test first: most lines are the shop's batches
+  try {
+    const hand = handSpans(JSON.parse(lines[i]))
+    if (hand.spans.length > 0) lastByHand = hand
+  } catch {}
+}
 let receiverUp = false
 try {
   receiverUp = (await fetch('http://127.0.0.1:4318/health', { signal: AbortSignal.timeout(800) })).ok
 } catch {}
-const { isRejected } = await import('./cases/rejected.mjs')
+// Your own file: if it does not load (a line uncommented with its "Why" text, say), mission 7 says so and the rest works.
+let isRejected = () => false
+let rejectedBroken = ''
+try {
+  ;({ isRejected } = await import('./cases/rejected.mjs'))
+} catch (error) {
+  rejectedBroken = error.message
+}
 const rejected = fromShop.filter((s) => {
   try {
     return isRejected(s)
@@ -52,15 +57,18 @@ const rejected = fromShop.filter((s) => {
 const withReason = rejected.filter((r) => placeOrders.some((p) => p.traceId === r.traceId && p.attributes['order.rejected']))
 
 /** Missions 2 and 3 are checked against your last hand-sent span(s), with the goals the receiver shows. */
-function fromReceiver(mission, pick) {
+function fromReceiver(mission, pick, missing) {
   const subject = lastByHand && pick(lastByHand)
   return mission.goals.map((g) => ({
     what: g.what,
+    outcome: true,
     ok: () => Boolean(subject) && g.ok(subject, lastByHand.root),
-    got: () => (subject ? String(g.got(subject, lastByHand.root)) : 'nothing sent yet'),
-    hint: subject ? g.hint(lastByHand.root) : 'send tools/span.json with curl (the command is in the README, part 2)',
+    got: () => (subject ? String(g.got(subject, lastByHand.root)) : lastByHand ? missing.got : 'nothing sent yet'),
+    hint: subject ? g.hint(lastByHand.root) : lastByHand ? missing.hint : 'send tools/span.json with curl (the command is in the README, part 2)',
   }))
 }
+
+const ROUTE = 'app/api/checkout/route.ts'
 
 // ── The missions ───────────────────────────────────────────────────────────────────────────────────────────────────
 const MISSIONS = [
@@ -86,8 +94,8 @@ const MISSIONS = [
       { ...uncomment('tools/print-spans.mjs', 'ms'), ok: () => active('tools/print-spans.mjs', /ms = Number\(BigInt/) },
       { ...uncomment('tools/print-spans.mjs', 'error'), ok: () => active('tools/print-spans.mjs', /error = span\.status/) },
       { ...uncomment('tools/print-spans.mjs', 'details'), ok: () => active('tools/print-spans.mjs', /details = \(span\.attributes/) },
-      { what: 'receiver running', ok: () => receiverUp, hint: 'npm run receiver in a second terminal' },
-      { what: 'a batch kept', ok: () => spans.length > 0, got: () => `${spans.length} spans`, hint: 'send tools/span.json with the curl above' },
+      { what: 'receiver running', outcome: true, ok: () => receiverUp || spans.length > 0, hint: 'npm run receiver in a second terminal' },
+      { what: 'a batch kept', outcome: true, ok: () => spans.length > 0, got: () => `${spans.length} spans`, hint: 'send tools/span.json with the curl above' },
     ],
     stuck: 'npm run receiver -- --solution',
     done: 'a server, a JSON body, an answer — that is all a telemetry backend is at its core.',
@@ -102,7 +110,7 @@ const MISSIONS = [
       'edit tools/span.json — name, times, status, attributes',
       'send it with the same curl after each change; your receiver prints the checklist too',
     ],
-    goals: fromReceiver(FIRST_SPAN, (h) => h.root),
+    goals: fromReceiver(FIRST_SPAN, (h) => h.root, {}),
     stuck: 'every ✗ above says which JSON field and what to put there',
     done: FIRST_SPAN.done.join(' '),
   },
@@ -114,7 +122,10 @@ const MISSIONS = [
       "tools/print-spans.mjs — uncomment the indent ▶ line, so a tree looks like a tree",
       'send it with curl',
     ],
-    goals: fromReceiver(TREE, (h) => h.child),
+    goals: [
+      ...fromReceiver(TREE, (h) => h.child, { got: 'no second span yet', hint: 'add a second span to "spans" in tools/span.json, then send it' }),
+      { ...uncomment('tools/print-spans.mjs', 'indent'), ok: () => active('tools/print-spans.mjs', /indent = span\.parentSpanId/) },
+    ],
     stuck: 'the hints above carry the real traceId and spanId of your first span — copy them',
     done: TREE.done.join(' '),
   },
@@ -146,22 +157,25 @@ const MISSIONS = [
       },
       {
         what: 'server spans arrive',
+        outcome: true,
         ok: () => fromShop.length > 0,
         got: () => `${fromShop.length} spans`,
         hint: 'receiver running? then restart npm run dev and open a page of the shop',
       },
       {
         what: 'browser spans arrive',
+        outcome: true,
         ok: () => fromBrowser.length > 0,
         got: () => `${fromBrowser.length} spans`,
         hint: 'reload the shop in the browser (the page needs the new instrumentation-client.ts)',
       },
       {
         what: 'the 400 is data',
+        outcome: true,
         ok: () => fromShop.some((s) => s.name?.includes('/api/checkout') && Number(s.attributes['http.response.status_code'] ?? s.attributes['http.status_code']) === 400),
         hint: 'in the shop: product 1 → Quantity 20 → Buy',
       },
-      { what: 'a browser error is data', ok: () => fromBrowser.some((s) => s.attributes['observe.kind'] === 'browser-error'), hint: 'in the shop: product 1 → ♡ Save for later' },
+      { what: 'a browser error is data', outcome: true, ok: () => fromBrowser.some((s) => s.attributes['observe.kind'] === 'browser-error'), hint: 'in the shop: product 1 → ♡ Save for later' },
       { ...uncomment('tools/print-spans.mjs', 'noise-filter'), what: 'terminal readable', ok: () => active('tools/print-spans.mjs', /if \(NOISE\.has\(scope\?\.name\)/) },
     ],
     stuck: 'git stash -u && git checkout -B workshop block-3-instrumentation && npm install',
@@ -178,13 +192,14 @@ const MISSIONS = [
       'in the shop: product 1 → Quantity 20 → Buy (the dev server picks up the change on save)',
     ],
     goals: [
-      { ...uncomment(ROUTE(), 'import'), ok: () => active(ROUTE(), /import \{ trace \} from '@opentelemetry\/api'/) },
-      { ...uncomment(ROUTE(), 'startSpan'), ok: () => active(ROUTE(), /span = trace\.getTracer\('porto-shop'\)\.startSpan\('placeOrder'\)/) },
-      { ...uncomment(ROUTE(), 'order.quantity'), ok: () => active(ROUTE(), /span\.setAttribute\('order\.quantity'/) },
-      { ...uncomment(ROUTE(), 'order.rejected'), ok: () => active(ROUTE(), /span\.setAttribute\('order\.rejected'/) },
-      { what: 'placeOrder arrives', ok: () => placeOrders.length > 0, got: () => `${placeOrders.length} spans`, hint: 'in the shop: buy anything' },
+      { ...uncomment(ROUTE, 'import'), ok: () => active(ROUTE, /import \{ trace \} from '@opentelemetry\/api'/) },
+      { ...uncomment(ROUTE, 'startSpan'), ok: () => active(ROUTE, /span = trace\.getTracer\('porto-shop'\)\.startSpan\('placeOrder'\)/) },
+      { ...uncomment(ROUTE, 'order.quantity'), ok: () => active(ROUTE, /span\.setAttribute\('order\.quantity'/) },
+      { ...uncomment(ROUTE, 'order.rejected'), ok: () => active(ROUTE, /span\.setAttribute\('order\.rejected'/) },
+      { what: 'placeOrder arrives', outcome: true, ok: () => placeOrders.length > 0, got: () => `${placeOrders.length} spans`, hint: 'in the shop: buy anything' },
       {
         what: 'the reason arrives',
+        outcome: true,
         ok: () => placeOrders.some((s) => s.attributes['order.rejected']),
         got: () => String(placeOrders.find((s) => s.attributes['order.rejected'])?.attributes['order.rejected'] ?? ''),
         hint: 'in the shop: product 1 → Quantity 20 → Buy',
@@ -211,12 +226,14 @@ const MISSIONS = [
       })),
       {
         what: 'function spans arrive',
+        outcome: true,
         ok: () => functionSpans.length > 0,
         got: () => `${new Set(functionSpans.map((s) => s.name)).size} functions`,
         hint: 'in the shop: open the home page and a product',
       },
       {
         what: 'chargePayment arrives',
+        outcome: true,
         ok: () => functionSpans.some((s) => s.name === 'chargePayment'),
         hint: 'in the shop: buy one of anything (Quantity 1)',
       },
@@ -240,30 +257,31 @@ const MISSIONS = [
       { ...uncomment('tools/cases/rejected.mjs', 'status'), ok: () => active('tools/cases/rejected.mjs', /checks\.push\(span\.attributes\['http\.status_code'\]/) },
       {
         what: 'rejected orders found',
-        ok: () => rejected.length > 0 && rejected.every((s) => s.name?.includes('/api/checkout')),
-        got: () => `${rejected.length} spans`,
-        hint: 'in the shop: product 1 → Quantity 20 → Buy, then npm run case checkout-400',
+        outcome: true,
+        ok: () => !rejectedBroken && rejected.length > 0 && rejected.every((s) => s.name?.includes('/api/checkout')),
+        got: () => (rejectedBroken ? 'file broken' : `${rejected.length} spans`),
+        hint: rejectedBroken ? `tools/cases/rejected.mjs does not load: ${rejectedBroken}` : 'in the shop: product 1 → Quantity 20 → Buy, then npm run case checkout-400',
       },
       {
         what: 'with the reason',
+        outcome: true,
         ok: () => withReason.length > 0,
         got: () => `${withReason.length} of ${rejected.length}`,
         hint: 'buy 20 again after mission 5 — older orders were refused before your placeOrder existed',
       },
     ],
-    stuck: 'npm run case checkout-400 -- --solution',
+    stuck: 'npm run case checkout-400 -- --solution shows the answer — then make your three lines match it',
     done: 'you did by script what an observability backend does: filter, group by trace, read the reason. Five more cases in tools/cases/.',
   },
 ]
-function ROUTE() {
-  return 'app/api/checkout/route.ts'
-}
 
 // ── Which mission, and the printout ────────────────────────────────────────────────────────────────────────────────
+// A mission is complete when what it is for has arrived (the outcome goals). The "uncomment" items are the way there —
+// someone who caught up with --solution or a tag has the result without having uncommented your copy of the lines.
 const results = MISSIONS.map((m) => m.goals.map((g) => ({ ...g, done: g.ok() })))
-const complete = results.map((r) => r.every((g) => g.done))
+const complete = results.map((r) => r.filter((g) => g.outcome).every((g) => g.done) && r.some((g) => g.outcome))
 const asked = Number(process.argv[2])
-if (process.argv[2] && !(asked >= 1 && asked <= MISSIONS.length)) {
+if (process.argv[2] && !(Number.isInteger(asked) && asked >= 1 && asked <= MISSIONS.length)) {
   console.log(`usage: npm run mission <1–${MISSIONS.length}>`)
   process.exit(1)
 }

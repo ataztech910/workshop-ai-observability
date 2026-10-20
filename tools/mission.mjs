@@ -126,9 +126,9 @@ export function handSpans(batch) {
 }
 
 export function checkMission(batch) {
-  const { spans, root } = handSpans(batch)
+  const { spans, root, child } = handSpans(batch)
   if (spans.length === 0) return
-  if (spans.length === 1) return report(FIRST_SPAN, root, root)
+  if (!child) return report(FIRST_SPAN, root, root)
   // Two or more spans: mission 3, on the first span that is not the root.
-  report(TREE, spans.find((s) => s !== root), root)
+  report(TREE, child, root)
 }
