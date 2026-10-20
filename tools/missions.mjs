@@ -50,6 +50,9 @@ const receiverUp = Boolean(health)
 const observerUp = typeof health?.spans === 'number'
 const services = observerUp ? ((await ask('/api/services')) ?? []) : []
 const inObserver = (name) => services.some((s) => s.name === name)
+const versionsOf = (name) => services.find((s) => s.name === name)?.versions ?? []
+// Part 4: can the observer compare the two deployments yet? (It needs checkouts in both.)
+const regression = observerUp ? (await ask('/api/regression'))?.regression : undefined
 // Your placeOrder spans as the observer has them (part 3): the traces, then the span with the reason in one of them.
 const placeOrderTraces = observerUp ? ((await ask('/api/traces?operation=placeOrder&exactOperation=true&limit=20')) ?? []) : []
 let reasonInObserver
@@ -341,6 +344,45 @@ const MISSIONS = [
     ],
     stuck: '"port 4318 is taken"? your receiver still runs — Ctrl+C it. Nothing arrives? npm run dev must be running too',
     done: 'the same OTLP, a different receiver — the shop did not change one line. Now look around: Traces, Errors, Overview.',
+  },
+  {
+    title: 'Two deployments',
+    story: [
+      'Real shops change. Today Porto-7 ships two builds of the shop, v1 and then v2, with customers on both — and',
+      'every span carries its version (service.version), so the observer can tell one deployment from the next.',
+    ],
+    steps: [
+      'stop npm run dev (Ctrl+C) and start the first build instead: npm run dev:v1',
+      'in a third terminal: npm run users 60 — customers in a real browser — then npm run load 40 — server traffic',
+      'deploy the next build: Ctrl+C npm run dev:v1, then npm run dev:v2',
+      'the same customers again: npm run users 60, then npm run load 40',
+    ],
+    goals: [
+      { what: 'observer on 4318', outcome: true, ok: () => observerUp, hint: 'npm run observer (mission 8)' },
+      {
+        what: 'v1 deployed',
+        outcome: true,
+        ok: () => versionsOf(app.name).includes('v1'),
+        got: () => versionsOf(app.name).join(' → '),
+        hint: 'Ctrl+C npm run dev, then npm run dev:v1',
+      },
+      { what: 'customers on v1', outcome: true, ok: () => versionsOf(`${app.name}-browser`).includes('v1'), hint: 'while v1 runs: npm run users 60' },
+      {
+        what: 'v2 deployed after v1',
+        outcome: true,
+        ok: () => versionsOf(app.name).indexOf('v2') > versionsOf(app.name).indexOf('v1') && versionsOf(app.name).includes('v1'),
+        hint: 'Ctrl+C npm run dev:v1, then npm run dev:v2',
+      },
+      { what: 'customers on v2', outcome: true, ok: () => versionsOf(`${app.name}-browser`).includes('v2'), hint: 'while v2 runs: npm run users 60' },
+      {
+        what: 'enough to compare',
+        outcome: true,
+        ok: () => Boolean(regression),
+        hint: 'npm run load 40 on v1 and again on v2 — comparing needs checkouts in both versions',
+      },
+    ],
+    stuck: 'npm run users says the shop is not answering? use the port npm run dev:v1 printed: BASE_URL=http://localhost:<port> npm run users 60',
+    done: 'two deployments on record, with customers on both — like a real release. Now: what broke between them?',
   },
 ]
 
