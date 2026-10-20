@@ -302,7 +302,7 @@ const MISSIONS = [
     // The first steps depend on what holds port 4318 right now.
     steps: [
       ...(receiverUp && !observerUp
-        ? ['your receiver from part 2 (npm run receiver) still holds port 4318 — stop it: Ctrl+C in its terminal']
+        ? ['the receiver you built in mission 1 (npm run receiver) is still running and holds port 4318 — stop it: Ctrl+C in its terminal']
         : []),
       ...(observerUp
         ? ['✓ the observer is running on 4318 — open http://127.0.0.1:4318 in the browser']
