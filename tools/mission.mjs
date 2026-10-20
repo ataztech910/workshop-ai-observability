@@ -2,7 +2,7 @@
 // (scope "by-hand", the one in tools/span.json) and prints how far you are from the mission — the shop's own spans
 // are ignored. Nothing to change here.
 //
-// Mission: Colony Sandy-9 cannot place an order, and Kevin's dashboard is all green. Be the APM agent: edit
+// Mission: Colony Sandy-9 cannot place an order, and Kevin's dashboard is all green. Be the app: edit
 // tools/span.json until your receiver reports the failed order.
 
 const value = (v = {}) => v.stringValue ?? v.intValue ?? v.doubleValue ?? v.boolValue
@@ -29,7 +29,7 @@ const GOALS = [
     what: 'order.rejected',
     ok: (s) => String(attr(s.attributes, 'order.rejected') ?? '').length > 0,
     got: (s) => String(attr(s.attributes, 'order.rejected') ?? 'missing'),
-    hint: 'the reason, as text: "order.rejected" = "quantity 20 > limit 10"',
+    hint: 'the reason, as text: { "key": "order.rejected", "value": { "stringValue": "quantity 20 > limit 10" } }',
   },
 ]
 
@@ -51,7 +51,7 @@ export function checkMission(batch) {
   const done = results.filter((r) => r.done).length
   if (done === GOALS.length) {
     console.log(paint(33, `★ Mission complete — Sandy-9's failed order is on record, with the reason.`))
-    console.log(paint(33, `  This is all an APM agent does: it fills these fields for you, thousands of times a second.`))
+    console.log(paint(33, `  Soon the shop will fill these fields by itself, thousands of times a second.`))
     return
   }
   console.log(paint(33, `mission · report Sandy-9's failed order  ${done}/${GOALS.length}`))
