@@ -9,8 +9,7 @@
 // You do not need to restart: the receiver reloads when you save.
 //
 // Every batch is appended as one line to .telemetry/spans.ndjson — the file the case scripts read later.
-// Port 4318 on purpose: the app's APM agent sends there by default, and in part 3 the observer takes the same port
-// over — the app does not change. So the receiver and the observer never run at the same time.
+// Port 4318 is the standard OTLP/HTTP port: OpenTelemetry senders try it first.
 import { appendFileSync, mkdirSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { gunzipSync } from 'node:zlib'
@@ -32,8 +31,7 @@ function start(printSpans) {
     if (req.method === 'GET' && req.url === '/health') return res.writeHead(200, { 'content-type': 'application/json' }).end('{"status":"ok"}')
     if (req.method !== 'POST' || !req.url?.startsWith('/v1/traces')) return res.writeHead(404).end()
     // OTLP has two encodings: JSON (text — this receiver reads it) and protobuf (binary and smaller, common in
-    // production). The APM agent you add to the shop later in this part sends JSON; anything else gets 415
-    // "Unsupported Media Type".
+    // production). We send JSON — tools/span.json; anything else gets 415 "Unsupported Media Type".
     if (!String(req.headers['content-type']).includes('json')) return res.writeHead(415).end('this receiver reads OTLP/JSON only')
 
     const chunks = []
@@ -76,14 +74,14 @@ function start(printSpans) {
 
       // return res.writeHead(200, { 'content-type': 'application/json' }).end('{}') // ▶
       //   Why: the sender waits for this answer. In OTLP, success is an empty response `{}` with status 200;
-      //   anything else and the app's APM agent counts the batch as failed — it retries only on 429 or 502–504,
+      //   anything else and the sender counts the batch as failed — it retries only on 429 or 502–504,
       //   every other answer and the batch is dropped for good.
       res.writeHead(501).end('501 — the receiver read the batch but does not answer yet: uncomment the last ▶ line\n')
     })
   })
     .on('error', (error) => {
       const taken = error.code === 'EADDRINUSE'
-      console.error(taken ? `port ${PORT} is taken — stop whatever listens there (a receiver in another terminal, or the observer): the app sends to ${PORT}` : error.message)
+      console.error(taken ? `port ${PORT} is taken — stop whatever listens there (maybe a receiver in another terminal)` : error.message)
       process.exit(1)
     })
     .listen(PORT, '127.0.0.1', () => console.log(`receiver  http://127.0.0.1:${PORT}/v1/traces → .telemetry/spans.ndjson`))
