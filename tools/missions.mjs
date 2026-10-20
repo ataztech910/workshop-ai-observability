@@ -1,7 +1,7 @@
 // npm run mission <N> — your checklist for mission N of part 2: what it is about, what to do, and what is done.
 // It reads your project files and what your receiver wrote to .telemetry/spans.ndjson; it never changes your code.
 // Without a number it shows the first mission that is not done yet.
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { loadSpans } from './cases/spans.mjs'
 import { FIRST_SPAN, TREE, handSpans } from './mission.mjs'
 
@@ -91,6 +91,35 @@ function fromReceiver(mission, pick, missing) {
 }
 
 const ROUTE = 'app/api/checkout/route.ts'
+
+// ── Mission 10: the bugs, as questions you answer from what the observer shows ────────────────────────────────────
+// npm run mission 10 <key> <answer>. Accepted answers are kept in .telemetry/answers.json.
+const QUIZ = [
+  { key: 'click', q: 'product 1, ♡ Save for later does nothing. What does the code call on null?', accept: ['push'], where: 'Errors → the uncaught error from product 1: read its message' },
+  { key: 'details', q: 'product 4, Show details breaks the page. Which component throws?', accept: ['Details'], where: 'Errors → the error after Show details: the component is named in it' },
+  { key: 'hydration', q: 'every product page: server and browser render different text. Which component?', accept: ['Viewers'], where: 'Errors → hydration mismatch: the message names the component' },
+  { key: 'reviews', q: 'product 2, reviews never load. What status does the reviews API answer?', accept: ['204'], where: "Traces → the browser's GET /api/reviews/2: http.response.status_code" },
+  { key: 'checkout', q: 'Buy ×20 fails. Up to how many items does the shop allow?', accept: ['10'], where: 'Traces → placeOrder of a refused order: order.rejected (your span from mission 5)' },
+  { key: 'search', q: 'typing in the search box: which request repeats over and over?', accept: ['/api/products'], where: 'Overview → the request with by far the most calls' },
+  { key: 'home', q: 'the home page: which function runs once per product, one after another?', accept: ['getProductById'], where: 'Traces → GET / → the waterfall: the same name many times in a row' },
+  {
+    key: 'deploy',
+    q: 'v2 is slower: the banner names the request. Which function inside it takes the extra time?',
+    accept: ['chargePayment'],
+    where: 'the regression banner names the request — open one of its traces from v2: the span with the most time',
+  },
+  { key: 'stock', q: 'which operation fails about one time in three?', accept: ['checkInventory', '/api/inventory'], where: 'Errors or Overview → the error rate per operation' },
+]
+const ANSWERS = new URL('.telemetry/answers.json', root)
+const answers = JSON.parse(read('.telemetry/answers.json') || '{}')
+const norm = (text) => String(text).toLowerCase().replace(/[^a-z0-9]/g, '')
+/** Long names may appear inside a longer answer ("GET /api/products"); short ones (10, 204, push) must be a word. */
+const correct = (item, answer) =>
+  item.accept.some((a) => {
+    const want = norm(a)
+    const words = String(answer).toLowerCase().split(/[^a-z0-9]+/)
+    return want.length >= 6 ? norm(answer).includes(want) : words.includes(want)
+  })
 
 // ── The missions ───────────────────────────────────────────────────────────────────────────────────────────────────
 const MISSIONS = [
@@ -384,7 +413,44 @@ const MISSIONS = [
     stuck: 'npm run users says the shop is not answering? use the port npm run dev:v1 printed: BASE_URL=http://localhost:<port> npm run users 60',
     done: 'two deployments on record, with customers on both — like a real release. Now: what broke between them?',
   },
+  {
+    title: 'Find the bugs',
+    story: [
+      "v2 is out. Sandy-9 complains, Kevin's dashboard is green, and Lord Manager wants names. Nine things are wrong:",
+      'six you met as a customer in part 1, three that only the telemetry shows. Find each one in the observer —',
+      'no DevTools, no code — and name it.',
+    ],
+    steps: [
+      'open the observer: Errors, Overview, Traces (click one for its waterfall), the banner on top',
+      'answer each question below: npm run mission 10 <key> <answer>   e.g. npm run mission 10 home <the name you found>',
+      'a wrong answer tells you where to look — not the answer',
+    ],
+    goals: QUIZ.map((item) => ({
+      what: item.key,
+      outcome: true,
+      ok: () => correct(item, answers[item.key] ?? ''),
+      got: () => (correct(item, answers[item.key] ?? '') ? answers[item.key] : ''),
+      hint: item.q,
+    })),
+    stuck: 'nothing in Errors? npm run users 60 again — the customers make the browser bugs happen',
+    done: 'nine bugs named from the telemetry alone. How many did you notice by hand in part 1?',
+  },
 ]
+
+// ── An answer for mission 10: npm run mission 10 <key> <answer> ─────────────────────────────────────────────────────
+if (process.argv[2] === '10' && process.argv[3]) {
+  const item = QUIZ.find((q) => q.key === process.argv[3].toLowerCase())
+  const answer = process.argv.slice(4).join(' ')
+  if (!item) console.log(paint(31, `no question "${process.argv[3]}" — the keys: ${QUIZ.map((q) => q.key).join(', ')}`))
+  else if (!answer) console.log(paint(31, `the answer is missing: npm run mission 10 ${item.key} <answer>`))
+  else if (correct(item, answer)) {
+    answers[item.key] = answer
+    mkdirSync(new URL('.telemetry/', root), { recursive: true })
+    writeFileSync(ANSWERS, JSON.stringify(answers, null, 2))
+    console.log(paint(32, `✓ ${item.key}: ${answer} — right`))
+  } else console.log(paint(31, `✗ ${item.key}: "${answer}" — not quite. Look at: ${item.where}`))
+  console.log()
+}
 
 // ── Which mission, and the printout ────────────────────────────────────────────────────────────────────────────────
 // A mission is complete when what it is for has arrived (the outcome goals). The "uncomment" items are the way there —
