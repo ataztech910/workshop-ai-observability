@@ -35,10 +35,29 @@ for (let i = lines.length - 1; i >= 0 && !lastByHand; i--) {
     if (hand.spans.length > 0) lastByHand = hand
   } catch {}
 }
-let receiverUp = false
-try {
-  receiverUp = (await fetch('http://127.0.0.1:4318/health', { signal: AbortSignal.timeout(800) })).ok
-} catch {}
+// Port 4318: your receiver in part 2, the observer from part 3 on. The observer's /health also counts its spans.
+const OBSERVER = 'http://127.0.0.1:4318'
+const ask = async (path) => {
+  try {
+    const res = await fetch(`${OBSERVER}${path}`, { signal: AbortSignal.timeout(1500) })
+    return res.ok ? await res.json() : undefined
+  } catch {
+    return undefined
+  }
+}
+const health = await ask('/health')
+const receiverUp = Boolean(health)
+const observerUp = typeof health?.spans === 'number'
+const services = observerUp ? ((await ask('/api/services')) ?? []) : []
+const inObserver = (name) => services.some((s) => s.name === name)
+// Your placeOrder spans as the observer has them (part 3): the traces, then the span with the reason in one of them.
+const placeOrderTraces = observerUp ? ((await ask('/api/traces?operation=placeOrder&exactOperation=true&limit=20')) ?? []) : []
+let reasonInObserver
+for (const t of placeOrderTraces) {
+  const trace = await ask(`/api/traces/${t.traceId}`)
+  reasonInObserver = trace?.spans?.find((s) => s.name === 'placeOrder' && s.attributes?.['order.rejected'])
+  if (reasonInObserver) break
+}
 // Your own file: if it does not load (a line uncommented with its "Why" text, say), mission 7 says so and the rest works.
 let isRejected = () => false
 let rejectedBroken = ''
@@ -272,6 +291,46 @@ const MISSIONS = [
     ],
     stuck: 'npm run case checkout-400 -- --solution shows the answer — then make your three lines match it',
     done: 'you did by script what an observability backend does: filter, group by trace, read the reason. Five more cases in tools/cases/.',
+  },
+  {
+    title: 'Good evening, Kevin',
+    story: [
+      'A script answers one question, once. At 3 am nobody runs it. The observer is a receiver that keeps everything,',
+      'shows it, and watches. Same port, same OTLP — the shop does not change a single line.',
+    ],
+    steps: [
+      'stop your receiver (Ctrl+C in its terminal)',
+      'npm run observer — in the same terminal, on the same port 4318',
+      'in the shop: reload a page; product 1 → Quantity 20 → Buy',
+      'open http://127.0.0.1:4318 → Traces → your placeOrder — find order.rejected in its attributes',
+    ],
+    goals: [
+      {
+        what: 'observer on 4318',
+        outcome: true,
+        ok: () => observerUp,
+        got: () => (observerUp ? `${health.spans} spans` : receiverUp ? 'your receiver' : 'nothing'),
+        hint: receiverUp ? 'Ctrl+C your receiver, then npm run observer' : 'npm run observer',
+      },
+      { what: 'the shop arrives', outcome: true, ok: () => inObserver(app.name), hint: 'keep npm run dev running and open a page of the shop' },
+      { what: 'the browser arrives', outcome: true, ok: () => inObserver(`${app.name}-browser`), hint: 'reload the shop in the browser' },
+      {
+        what: 'your placeOrder',
+        outcome: true,
+        ok: () => placeOrderTraces.length > 0,
+        got: () => `${placeOrderTraces.length} traces`,
+        hint: 'in the shop: buy anything — what your receiver kept is not in the observer',
+      },
+      {
+        what: 'with the reason',
+        outcome: true,
+        ok: () => Boolean(reasonInObserver),
+        got: () => String(reasonInObserver?.attributes?.['order.rejected'] ?? ''),
+        hint: 'in the shop: product 1 → Quantity 20 → Buy',
+      },
+    ],
+    stuck: 'nothing arrives? npm run dev must be running; the observer must be the only thing on port 4318',
+    done: 'the same OTLP, a different receiver — the shop did not change one line. Now look around: Traces, Errors, Overview.',
   },
 ]
 
