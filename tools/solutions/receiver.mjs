@@ -17,11 +17,12 @@ function start(printSpans) {
   const save = (batch) => appendFileSync(FILE, JSON.stringify(batch) + '\n')
 
   createServer((req, res) => {
-    // Like the observer: `npm run dev:v1` / `dev:v2` check that something is listening before they start the shop.
+    // "Are you alive?" — the shop's start scripts ask this before they start, so the app does not send into the void.
     if (req.method === 'GET' && req.url === '/health') return res.writeHead(200, { 'content-type': 'application/json' }).end('{"status":"ok"}')
     if (req.method !== 'POST' || !req.url?.startsWith('/v1/traces')) return res.writeHead(404).end()
     // OTLP has two encodings: JSON (text — this receiver reads it) and protobuf (binary and smaller, common in
-    // production). next-observe sends JSON; anything else gets 415 "Unsupported Media Type".
+    // production). The APM agent you add to the shop later in this part sends JSON; anything else gets 415
+    // "Unsupported Media Type".
     if (!String(req.headers['content-type']).includes('json')) return res.writeHead(415).end('this receiver reads OTLP/JSON only')
 
     const chunks = []
@@ -68,7 +69,7 @@ function start(printSpans) {
   })
     .on('error', (error) => {
       const taken = error.code === 'EADDRINUSE'
-      console.error(taken ? `port ${PORT} is taken — stop the observer (or whatever listens there): the app sends to ${PORT}` : error.message)
+      console.error(taken ? `port ${PORT} is taken — stop whatever listens there (a receiver in another terminal, or the observer): the app sends to ${PORT}` : error.message)
       process.exit(1)
     })
     .listen(PORT, '127.0.0.1', () => console.log(`receiver  http://127.0.0.1:${PORT}/v1/traces → .telemetry/spans.ndjson`))
