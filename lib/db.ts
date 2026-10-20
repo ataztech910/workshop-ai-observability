@@ -1,3 +1,7 @@
+// Mission 6 · 'use observe': uncomment the ▶ line (Cmd+/), then npm run mission 6.
+// 'use observe' // ▶
+//   Why: every query becomes a span — you will see how many the shop makes, and how long each one takes.
+
 // A fake database: every query costs ~18 ms, like a round trip to a real one.
 import { PRODUCTS, type Product } from '@/data/products'
 import { jitter } from './sleep'

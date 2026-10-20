@@ -1,6 +1,6 @@
 import { getProductById } from '@/lib/db'
 import { chargePayment } from '@/lib/payment'
-// Mission 4 · A span of your own: uncomment the ▶ lines (Cmd+/ or Ctrl+/), then `npm run mission`.
+// Mission 5 · A span of your own: uncomment the ▶ lines (Cmd+/ or Ctrl+/), then `npm run mission 5`.
 // import { trace } from '@opentelemetry/api' // ▶
 //   Why: the OpenTelemetry API — the part your own code talks to. It came with next-observe, nothing to install.
 
