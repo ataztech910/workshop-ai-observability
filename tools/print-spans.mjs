@@ -14,7 +14,7 @@
 //     GET /checkout                    0.0 ms  ok
 //   ── 14:02:40 · my-first-service v1 · 1 span ──      ← after
 //     GET /checkout                  250.0 ms  ok      http.route=/checkout http.status_code=200
-// The last two ▶ lines are for later, once the shop sends spans (it sends a lot).
+// Two ▶ lines wait: the indent is for "Make it a tree", the noise filter for when the shop sends spans (it sends a lot).
 // If the terminal floods while you type in the shop's search box, that is not your code — it is one of the shop's
 // bugs, and you will meet it again in part 4.
 // You do not need to restart the receiver: it reloads when you save this file.
@@ -60,7 +60,7 @@ export function printSpans(batch) {
         //   requests (kind 2 = SERVER) and errors, or the few spans you care about drown.
 
         let indent = ''
-        // indent = span.parentSpanId ? '  └ ' : '' // ▶ later, when the shop sends spans
+        // indent = span.parentSpanId ? '  └ ' : '' // ▶ for "Make it a tree"
         //   Why: parentSpanId is what turns separate spans into a tree — a trace. No parent = the root, the request.
 
         const status = error ? paint(31, 'ERROR') : paint(32, 'ok   ')
