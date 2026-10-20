@@ -299,11 +299,18 @@ const MISSIONS = [
       'telemetry all the time, keeps it, shows it and watches it: an observer. Ours is next-observer. It is not part',
       'of the shop: it runs next to it, on the port your receiver used, 4318 — so the shop does not change a line.',
     ],
+    // The first steps depend on what holds port 4318 right now.
     steps: [
-      'stop your receiver: Ctrl+C in its terminal — the port has to be free',
-      'start the observer in that terminal: npm run observer (the first start downloads it, give it a minute)',
-      'wait for its banner: "next-observer  ui  http://127.0.0.1:4318"',
-      'open http://127.0.0.1:4318 in the browser — the observer, still empty',
+      ...(receiverUp && !observerUp
+        ? ['your receiver from part 2 (npm run receiver) still holds port 4318 — stop it: Ctrl+C in its terminal']
+        : []),
+      ...(observerUp
+        ? ['✓ the observer is running on 4318 — open http://127.0.0.1:4318 in the browser']
+        : [
+            'start the observer in a free terminal: npm run observer (the first start downloads it, give it a minute)',
+            'wait for its banner: "next-observer  ui  http://127.0.0.1:4318"',
+            'open http://127.0.0.1:4318 in the browser — the observer, still empty',
+          ]),
       'in the shop: reload a page; product 1 → Quantity 20 → Buy',
       'back in the observer: Traces → your placeOrder → find order.rejected in its attributes',
     ],
