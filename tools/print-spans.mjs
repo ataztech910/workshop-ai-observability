@@ -1,4 +1,4 @@
-// Step 2 of your receiver: print one line per span of an OTLP/JSON batch.
+// Step 2 of your receiver: print what a batch of OTLP/JSON says — one header per sender, one line per span.
 //
 // A batch looks like this:
 //   { resourceSpans: [ { resource: { attributes: [...] },          ← who sent it: service.name, service.version
@@ -10,8 +10,10 @@
 //                                                   events: [ { name, attributes } ] } ] } ] } ] }
 //
 // Uncomment the lines marked ▶ one by one (Cmd+/ or Ctrl+/ on the line) and send the span again after each:
-//   ?  GET /checkout  0.0 ms  ok            ← before
-//   my-first-service  GET /checkout  250.0 ms  ok
+//   ── 14:02:31 · ? · 1 span ──                         ← before
+//     GET /checkout                    0.0 ms  ok
+//   ── 14:02:40 · my-first-service v1 · 1 span ──      ← after
+//     GET /checkout                  250.0 ms  ok      http.route=/checkout http.status_code=200
 // The last two ▶ lines are for later, once the shop sends spans (it sends a lot).
 // If the terminal floods while you type in the shop's search box, that is not your code — it is one of the shop's
 // bugs, and you will meet it again in part 4.
@@ -23,14 +25,19 @@ const value = (v = {}) => v.stringValue ?? v.intValue ?? v.doubleValue ?? v.bool
 const attr = (attributes = [], key) => value(attributes.find((a) => a.key === key)?.value)
 // Next.js and the browser's page loader send many spans of their own on every request — not what we look for.
 const NOISE = new Set(['next.js', '@opentelemetry/instrumentation-document-load'])
+// Colours in a terminal, plain text anywhere else.
+const paint = (code, text) => (process.stdout.isTTY ? `\x1b[${code}m${text}\x1b[0m` : text)
 
 export function printSpans(batch) {
   for (const { resource, scopeSpans = [] } of batch.resourceSpans ?? []) {
-    let service = '?'
-    // service = attr(resource?.attributes, 'service.name') // ▶
+    const about = resource?.attributes
+    let who = '?'
+    // who = `${attr(about, 'service.name')} ${attr(about, 'service.version') ?? ''}` // ▶
     //   Why: the span itself does not say who sent it — the resource does, once for the whole batch. service.name is
-    //   how every backend groups telemetry by app; without it all spans of all apps are one pile.
+    //   how every backend groups telemetry by app; service.version is how it tells one deployment from the next.
 
+    const lines = []
+    let hidden = 0
     for (const { scope, spans = [] } of scopeSpans) {
       for (const span of spans) {
         let ms = 0
@@ -43,7 +50,12 @@ export function printSpans(batch) {
         //   Why: status is how a span says it failed: 0 unset, 1 ok, 2 error. An HTTP 500 or a thrown exception
         //   ends up here — this is what an "error rate" is counted from.
 
-        // if (NOISE.has(scope?.name) && span.kind !== 2 && !error) continue // ▶ later, when the shop sends spans
+        let details = ''
+        // details = (span.attributes ?? []).map((a) => `${a.key}=${value(a.value)}`).join(' ') // ▶
+        //   Why: attributes are where a span says WHY — the route, the status code, the quantity, the reason an order
+        //   was refused. Name, time and status tell you that something failed; attributes tell you what to fix.
+
+        // if (NOISE.has(scope?.name) && span.kind !== 2 && !error) { hidden++; continue } // ▶ later, when the shop sends spans
         //   Why: scope.name says which library made the span. Next.js alone makes a dozen per page; keep only
         //   requests (kind 2 = SERVER) and errors, or the few spans you care about drown.
 
@@ -51,8 +63,13 @@ export function printSpans(batch) {
         // indent = span.parentSpanId ? '  └ ' : '' // ▶ later, when the shop sends spans
         //   Why: parentSpanId is what turns separate spans into a tree — a trace. No parent = the root, the request.
 
-        console.log(`${service}  ${indent}${span.name}  ${ms.toFixed(1)} ms  ${error ? 'ERROR' : 'ok'}`)
+        const status = error ? paint(31, 'ERROR') : paint(32, 'ok   ')
+        lines.push(`  ${(indent + span.name).padEnd(30)} ${ms.toFixed(1).padStart(8)} ms  ${status}  ${paint(2, details)}`)
       }
     }
+
+    const count = `${lines.length} ${lines.length === 1 ? 'span' : 'spans'}${hidden ? `, ${hidden} noise hidden` : ''}`
+    console.log(paint(36, `── ${new Date().toLocaleTimeString('en-GB')} · ${who.trim()} · ${count} ──`))
+    for (const line of lines) console.log(line)
   }
 }

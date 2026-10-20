@@ -14,6 +14,7 @@
 import { appendFileSync, mkdirSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { gunzipSync } from 'node:zlib'
+import { checkMission } from './mission.mjs'
 
 function start(printSpans) {
   const PORT = 4318
@@ -60,6 +61,13 @@ function start(printSpans) {
         //   It comes before printing: a bug in your printing must not cost you the data.
         // printSpans(batch) // ▶
         //   Why: the part a human looks at — one line per span (tools/print-spans.mjs, step 2).
+      } catch (error) {
+        console.error(error)
+      }
+      // Ready-made: the checklist for "Your first span" (tools/mission.mjs). On its own, so a crash in the printing —
+      // say, a timestamp you broke in span.json — does not hide the hint that says which field is wrong.
+      try {
+        checkMission(batch)
       } catch (error) {
         console.error(error)
       }
