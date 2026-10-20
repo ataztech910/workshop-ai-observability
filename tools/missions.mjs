@@ -295,14 +295,17 @@ const MISSIONS = [
   {
     title: 'Good evening, Kevin',
     story: [
-      'A script answers one question, once. At 3 am nobody runs it. The observer is a receiver that keeps everything,',
-      'shows it, and watches. Same port, same OTLP — the shop does not change a single line.',
+      'A script answers one question, once — and at 3 am nobody runs it. What you need is a program that takes the',
+      'telemetry all the time, keeps it, shows it and watches it: an observer. Ours is next-observer. It is not part',
+      'of the shop: it runs next to it, on the port your receiver used, 4318 — so the shop does not change a line.',
     ],
     steps: [
-      'stop your receiver (Ctrl+C in its terminal)',
-      'npm run observer — in the same terminal, on the same port 4318',
+      'stop your receiver: Ctrl+C in its terminal — the port has to be free',
+      'start the observer in that terminal: npm run observer (the first start downloads it, give it a minute)',
+      'wait for its banner: "next-observer  ui  http://127.0.0.1:4318"',
+      'open http://127.0.0.1:4318 in the browser — the observer, still empty',
       'in the shop: reload a page; product 1 → Quantity 20 → Buy',
-      'open http://127.0.0.1:4318 → Traces → your placeOrder — find order.rejected in its attributes',
+      'back in the observer: Traces → your placeOrder → find order.rejected in its attributes',
     ],
     goals: [
       {
@@ -329,7 +332,7 @@ const MISSIONS = [
         hint: 'in the shop: product 1 → Quantity 20 → Buy',
       },
     ],
-    stuck: 'nothing arrives? npm run dev must be running; the observer must be the only thing on port 4318',
+    stuck: '"port 4318 is taken"? your receiver still runs — Ctrl+C it. Nothing arrives? npm run dev must be running too',
     done: 'the same OTLP, a different receiver — the shop did not change one line. Now look around: Traces, Errors, Overview.',
   },
 ]
