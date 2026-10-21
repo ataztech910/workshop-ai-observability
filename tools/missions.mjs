@@ -113,6 +113,97 @@ function fromReceiver(mission, pick, missing) {
 
 const ROUTE = 'app/api/checkout/route.ts'
 
+// ── Mission 11: a fix counts when its line is uncommented AND it works: the mission opens the shop in its own browser
+// (fresh, with the new code), does exactly that thing, and then asks the observer whether the error came during it.
+const SHOP = process.env.BASE_URL ?? 'http://localhost:3000'
+const FIXES = [
+  {
+    what: 'Save for later',
+    file: 'app/product/[id]/wishlist.tsx',
+    line: /list \?\?= \[\]/,
+    page: '/product/1',
+    error: (d) => String(d.message).includes("reading 'push'"),
+    run: async (page) => {
+      await page.getByRole('button', { name: /Save for later/ }).click()
+      await page.waitForTimeout(800)
+      const text = await page.getByRole('button', { name: /Save|Saved/ }).innerText()
+      return text.includes('Saved') ? '' : 'the button did not turn into ♥ Saved'
+    },
+  },
+  {
+    what: 'reviews',
+    file: 'app/product/[id]/reviews.tsx',
+    line: /if \(res\.status === 204\) return \[\]/,
+    page: '/product/2',
+    error: (d) => String(d.message).includes('is not JSON') || String(d.message).includes("execute 'json'"),
+    // Positive: the reviews list renders (empty — product 2 has none). A page that does not render at all is not fixed.
+    run: async (page) => {
+      const list = await page.locator('ul.reviews').waitFor({ state: 'attached', timeout: 10_000 }).then(() => true, () => false)
+      return list ? '' : 'product 2 never shows its reviews list — still "Loading reviews…" or the page does not render'
+    },
+  },
+  {
+    what: 'search',
+    file: 'app/search.tsx',
+    line: /changesWhen = filter\.q/,
+    page: '/',
+    // The loop is not an error, it is calls: about ten a second without end. Fixed, typing makes one per keystroke.
+    run: async (page) => {
+      let calls = 0
+      page.on('request', (r) => r.url().includes('/api/products?q=') && calls++)
+      await page.getByRole('searchbox').pressSequentially('mug', { delay: 150 })
+      await page.waitForTimeout(3000)
+      return calls <= 5 ? '' : `${calls} search requests in 3 seconds — still the loop`
+    },
+  },
+]
+/** Filled by checkFixes() — only on `npm run mission 11` (it opens Chrome), read by mission 11's checklist. */
+const fixState = new Map()
+async function checkFixes() {
+  const toCheck = FIXES.filter((f) => active(f.file, f.line))
+  if (toCheck.length === 0) return
+  let browser
+  try {
+    const { chromium } = await import('playwright-core')
+    browser = await chromium.launch({ channel: 'chrome' })
+  } catch (error) {
+    console.log(paint(31, `could not start Chrome for the check: ${String(error.message).split('\n')[0]}`))
+    return
+  }
+  try {
+    for (const fix of toCheck) {
+      console.log(paint(2, `checking ${fix.what} in the shop (${SHOP}${fix.page})…`))
+      const startedMs = Date.now()
+      let broken = ''
+      const page = await browser.newPage()
+      page.setDefaultTimeout(10_000)
+      try {
+        const response = await page.goto(`${SHOP}${fix.page}`).catch(() => null)
+        if (!response) broken = `the shop does not answer at ${SHOP} — is npm run dev running? another port: BASE_URL=http://localhost:<port>`
+        else if (!response.ok()) broken = `${fix.page} answers ${response.status()} — the file may not compile: look at the npm run dev terminal`
+        else {
+          await page.waitForTimeout(1500)
+          broken = await fix.run(page).catch((error) => `the check could not do its step: ${String(error.message).split('\n')[0]}`)
+          // Stay a moment: the browser sends its spans every two seconds — the observer's proof needs them.
+          await page.waitForTimeout(3000)
+        }
+      } finally {
+        await page.close().catch(() => {})
+      }
+      // The proof from the telemetry: did this error arrive from this page while the mission was clicking?
+      if (!broken && fix.error) {
+        const defects = await ask('/api/defects?windowMs=3600000')
+        if (!defects) broken = 'the observer did not answer — npm run observer: the proof comes from it'
+        else if (defects.some((d) => fix.error(d) && d.lastSeenMs >= startedMs && (d.pages ?? []).some((p) => p.path === fix.page)))
+          broken = 'it still fails — the observer got the error again'
+      }
+      fixState.set(fix.what, { tried: true, broken })
+    }
+  } finally {
+    await browser.close().catch(() => {})
+  }
+}
+
 // ── Mission 10: the bugs, as questions you answer from what the observer shows ────────────────────────────────────
 // npm run mission 10 <key> <answer>. Accepted answers are kept in .telemetry/answers.json.
 const QUIZ = [
@@ -470,10 +561,42 @@ const MISSIONS = [
     stuck: 'too little in Errors? pick 1h at the top; still nothing — npm run users 60 again, the customers make the browser bugs happen',
     done: 'nine bugs named from the telemetry alone. How many did you notice by hand in part 1?',
   },
+  {
+    title: 'Fix one',
+    anyOf: true,
+    story: [
+      'Names are not enough: Lord Manager wants one bug gone today. The fix for three of them is already in the code,',
+      'commented out right next to the bug. Uncomment one — then prove it with the telemetry: the error stops coming.',
+    ],
+    steps: [
+      'pick one: app/product/[id]/wishlist.tsx (Save for later), app/product/[id]/reviews.tsx (reviews), app/search.tsx (search)',
+      'uncomment the ▶ line in it and read the "Why" — the dev server picks the change up on save',
+      'npm run mission 11 — it opens the shop in its own browser, tries exactly that, and asks the observer if the error came',
+    ],
+    goals: FIXES.map((fix) => ({
+      what: fix.what,
+      outcome: true,
+      ok: () => active(fix.file, fix.line) && fixState.get(fix.what)?.broken === '',
+      get got() {
+        const state = fixState.get(fix.what)
+        return !active(fix.file, fix.line) ? '' : !state ? 'fixed, not checked' : state.broken ? 'still broken' : 'works'
+      },
+      get hint() {
+        const state = fixState.get(fix.what)
+        if (!active(fix.file, fix.line)) return `${fix.file} — uncomment the ▶ line`
+        if (!state) return 'npm run mission 11 checks it in its own browser'
+        return state.broken
+      },
+    })),
+    stuck: 'the shop is not on port 3000? BASE_URL=http://localhost:<port> npm run mission 11',
+    done: 'one bug gone, and the telemetry proves it — the error stopped coming. Fixed means: fixed in production, not "it works on my machine".',
+  },
 ]
 
 // ── An answer for mission 10: npm run mission 10 <key> <answer> ─────────────────────────────────────────────────────
 const QUIZ_N = MISSIONS.findIndex((m) => m.quiz) + 1
+const FIX_N = MISSIONS.findIndex((m) => m.title === 'Fix one') + 1
+if (process.argv[2] === String(FIX_N) && !progress['Fix one']) await checkFixes()
 if (process.argv[2] === 'reset') {
   keep('.telemetry/progress.json', {})
   keep('.telemetry/answers.json', {})
@@ -508,7 +631,7 @@ if (process.argv[2] === String(QUIZ_N) && process.argv[3]) {
 // A mission is complete when what it is for has arrived (the outcome goals). The "uncomment" items are the way there —
 // someone who caught up with --solution or a tag has the result without having uncommented your copy of the lines.
 const results = MISSIONS.map((m) => m.goals.map((g) => ({ ...g, done: g.ok() })))
-const live = results.map((r) => r.filter((g) => g.outcome).every((g) => g.done) && r.some((g) => g.outcome))
+const live = results.map((r, i) => (MISSIONS[i].anyOf ? r.some((g) => g.outcome && g.done) : r.filter((g) => g.outcome).every((g) => g.done) && r.some((g) => g.outcome)))
 const complete = live.map((done, i) => done || progress[MISSIONS[i].title] === true)
 if (live.some((done, i) => done && !progress[MISSIONS[i].title])) keep('.telemetry/progress.json', { ...progress, ...Object.fromEntries(live.flatMap((done, i) => (done ? [[MISSIONS[i].title, true]] : []))) })
 const asked = Number(process.argv[2])
@@ -530,10 +653,11 @@ if (complete[n - 1]) {
   console.log(`\n${paint(33, `★ Mission ${n} complete — ${mission.done}`)}`)
   if (n < MISSIONS.length) console.log(paint(2, `  next: npm run mission ${n + 1}`))
 } else {
-  console.log(`\n${paint(1, 'Check')}  ${goals.filter((g) => g.done).length}/${goals.length}`)
+  console.log(`\n${paint(1, 'Check')}  ${goals.filter((g) => g.done).length}/${goals.length}${mission.anyOf ? '  (one is enough)' : ''}`)
   for (const g of goals) {
     const mark = g.done ? paint(32, '✓') : paint(31, '✗')
-    console.log(`  ${mark} ${g.what.padEnd(24)} ${(g.got?.() ?? '').padEnd(16)} ${g.done ? '' : paint(2, `← ${g.hint}`)}`)
+    const got = typeof g.got === 'function' ? g.got() : (g.got ?? '')
+    console.log(`  ${mark} ${g.what.padEnd(24)} ${String(got).padEnd(16)} ${g.done ? '' : paint(2, `← ${g.hint}`)}`)
   }
   console.log(`\n${paint(2, `Stuck?  ${mission.stuck}`)}`)
 }
