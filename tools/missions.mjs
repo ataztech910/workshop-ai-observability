@@ -487,12 +487,12 @@ if (process.argv[2] === String(QUIZ_N) && process.argv[3]) {
     }
   }
   if (!item) console.log(paint(31, `no question "${process.argv[3]}" — the keys: ${QUIZ.map((q) => q.key).join(', ')}`))
-  else if (!answer) console.log(paint(31, `the answer is missing: npm run mission ${QUIZ_N} ${item.key}`))
+  else if (!answer) console.log(paint(31, `the answer is missing — type it after the key, in quotes: npm run mission ${QUIZ_N} ${item.key} "<answer>"`))
   else if (correct(item, answer)) {
     answers[item.key] = answer
     keep('.telemetry/answers.json', answers)
     console.log(paint(32, `✓ ${item.key}: ${answer} — right`))
-  } else console.log(paint(31, `✗ ${item.key}: "${answer}" — not quite. Look at: ${item.where}`))
+  } else console.log(paint(31, `✗ ${item.key}: "${answer}" — not quite. Look at: ${item.where}${process.argv[4] ? '  (on the command line, put the answer in quotes)' : ''}`))
   console.log()
 }
 
