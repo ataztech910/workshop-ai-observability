@@ -3,7 +3,7 @@
 // It never changes your code; it keeps your progress and quiz answers in .telemetry/. Without a number it shows the
 // first mission that is not done yet.
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { createInterface } from 'node:readline/promises'
 import { loadSpans } from './cases/spans.mjs'
 import { FIRST_SPAN, TREE, handSpans } from './mission.mjs'
@@ -71,6 +71,17 @@ const keep = (file, value) => {
   mkdirSync(new URL('.telemetry/', root), { recursive: true })
   writeFileSync(new URL(file, root), JSON.stringify(value, null, 2))
 }
+// Part 5: your droid (observe.agents.ts) — mission 13. A conversation counts when it started after you last saved the
+// file: the observer reloads it, so from then on latency_agent is yours, not the built-in one.
+const chatInfo = observerUp ? await ask('/api/chat') : undefined
+const turns = observerUp ? ((await ask('/api/chat/history'))?.turns ?? []) : []
+let agentsSavedMs = Infinity
+try {
+  agentsSavedMs = statSync(new URL('observe.agents.ts', root)).mtimeMs
+} catch {}
+const myTurns = turns.filter((t) => !t.proactive && t.startedAtMs > agentsSavedMs && t.events.some((e) => e.type === 'step' && e.agent === 'latency_agent'))
+const lastTurn = myTurns.at(-1)
+const cardOf = (kind) => lastTurn?.events.find((e) => e.type === 'card' && e.card.kind === kind)?.card
 // Part 4: the observer's patrol (observe.checks.ts) — mission 12.
 const patrol = observerUp ? ((await ask('/api/checks'))?.checks ?? []) : []
 const check = (name) => patrol.find((c) => c.name === name)
@@ -749,6 +760,70 @@ const MISSIONS = [
     ],
     stuck: 'the checks do not appear? the observer reads observe.checks.ts from the folder it was started in — start npm run observer in the shop folder',
     done: 'the patrol caught the slow v2 by itself — nobody was buying. This is how Kevin hears about it at 3 am, before Sandy-9 does.',
+  },
+  {
+    title: 'Build your own droid',
+    recap: {
+      did: 'described a specialist of your own — its tools and its steps — and put it in place of the built-in latency_agent',
+      happened: 'the orchestrator sent your question to your droid; it called its tools, and code turned the results into cards',
+      why: 'the model reasons, the code shows the proof — a card is built from what a tool returned, never from what the model said',
+      see: 'observer → Chat: the steps (which droid, which tool) and the cards under the answer',
+      facts: () => [
+        `your droid called: ${[...new Set((lastTurn?.events ?? []).filter((e) => e.type === 'step' && e.agent === 'latency_agent').map((e) => e.tool))].join(', ')}`,
+        ...(cardOf('regression') ? [`regression card: ${cardOf('regression').operation}, ${cardOf('regression').from?.version ?? ''} → ${cardOf('regression').to?.version ?? ''}, p95 ×${Number(cardOf('regression').p95Ratio).toFixed(1)}`] : []),
+        ...(cardOf('hotspot') ? [`hotspot card: ${cardOf('hotspot').operation} in ${String(cardOf('hotspot').codeFile).split('/').slice(-2).join('/')}, ${Math.round(cardOf('hotspot').selfMs)} ms of its own`] : []),
+      ],
+    },
+    story: [
+      "The patrol raised the alarm; now someone has to find out why. The observer's AI agents are an orchestrator and three",
+      'specialist droids. Build your own latency droid: what it may use, and how it works — then ask it.',
+    ],
+    steps: [
+      'observe.agents.ts — uncomment the three ▶ lines; the observer reloads the file (its terminal lists your latency_agent)',
+      'observer → Chat: ask "Checkout is slow. What is causing it and which deployment introduced it?"',
+      'watch the steps — which droid calls which tool — and the cards under the answer',
+      'bonus: comment the tools ▶ line out again, save, ask again — no trace tools, no function',
+      'bonus: a real model instead of the mock one — OBSERVE_AI=real npm run observer (it needs a model; ask the instructor)',
+    ],
+    goals: [
+      { ...uncomment('observe.agents.ts', 'tools'), ok: () => active('observe.agents.ts', /tools\.push\('search_traces', 'get_trace'\)/) },
+      { ...uncomment('observe.agents.ts', 'step 3'), ok: () => active('observe.agents.ts', /'3\. Open one slow trace/) },
+      { ...uncomment('observe.agents.ts', 'your droid'), ok: () => active('observe.agents.ts', /specialists\.push\(latencyAgent\)/) },
+      {
+        what: 'the chat is on',
+        outcome: true,
+        ok: () => chatInfo?.enabled === true,
+        got: () => (chatInfo?.enabled ? `${chatInfo.mode} model` : ''),
+        hint: observerUp ? `the observer has no chat: ${chatInfo?.reason ?? 'see its terminal'}` : 'npm run observer (mission 8)',
+      },
+      {
+        what: 'your droid answered',
+        outcome: true,
+        ok: () => myTurns.length > 0,
+        got: () => `${myTurns.length} questions`,
+        hint: 'save observe.agents.ts, then ask in the observer\'s Chat — a question asked before the save was answered by the built-in droid',
+      },
+      {
+        what: 'the deployment found',
+        outcome: true,
+        ok: () => Boolean(cardOf('regression')),
+        got: () => (cardOf('regression') ? `${cardOf('regression').operation}` : ''),
+        hint: 'no regression card — mission 9 must have both v1 and v2 on record; ask again',
+      },
+      // A bonus, not required: the mock model calls tools without arguments, so get_trace has no trace to open — the
+      // function behind the slowdown takes a real model that picks a trace id from what search_traces returned.
+      {
+        what: 'bonus: the function',
+        ok: () => Boolean(cardOf('hotspot')),
+        got: () => (cardOf('hotspot') ? cardOf('hotspot').operation : ''),
+        hint:
+          chatInfo?.mode === 'real'
+            ? 'no hotspot card — your droid needs the trace tools (the tools ▶ line) and step 3; save, then ask again'
+            : 'the mock model cannot open a trace (it calls tools without arguments) — with a real model your droid names the function',
+      },
+    ],
+    stuck: 'no chat in the observer? it runs with the mock model by default — the terminal of npm run observer says why if it is off',
+    done: 'your droid found the slow deployment — and every claim has a card built from a tool result, not from the model.',
   },
 ]
 
