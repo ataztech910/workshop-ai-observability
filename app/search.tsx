@@ -14,7 +14,7 @@ export function Search() {
   // changesWhen = filter.q // ▶
   //   Why: React runs the effect again whenever its dependency changes. `filter` is a new object on every render, so:
   //   the effect fetches, the result renders, a new object, the effect fetches again — the request loop. Depend on
-  //   the text itself: it changes only when you type.
+  //   the text itself: it changes only when you type. (In your own code: list filter.q in the effect's dependencies.)
 
   useEffect(() => {
     if (!filter.q) return

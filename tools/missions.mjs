@@ -136,9 +136,10 @@ const FIXES = [
     line: /if \(res\.status === 204\) return \[\]/,
     page: '/product/2',
     error: (d) => String(d.message).includes('is not JSON') || String(d.message).includes("execute 'json'"),
+    // Positive: the reviews list renders (empty — product 2 has none). A page that does not render at all is not fixed.
     run: async (page) => {
-      await page.waitForTimeout(3000)
-      return (await page.locator('body').innerText()).includes('Loading reviews') ? 'product 2 still says "Loading reviews…"' : ''
+      const list = await page.locator('ul.reviews').waitFor({ state: 'attached', timeout: 10_000 }).then(() => true, () => false)
+      return list ? '' : 'product 2 never shows its reviews list — still "Loading reviews…" or the page does not render'
     },
   },
   {
@@ -169,29 +170,38 @@ async function checkFixes() {
     console.log(paint(31, `could not start Chrome for the check: ${String(error.message).split('\n')[0]}`))
     return
   }
-  for (const fix of toCheck) {
-    console.log(paint(2, `checking ${fix.what} in the shop (${SHOP}${fix.page})…`))
-    const startedMs = Date.now()
-    const page = await browser.newPage()
-    let broken = ''
-    try {
-      await page.goto(`${SHOP}${fix.page}`)
-      await page.waitForTimeout(1500)
-      broken = await fix.run(page)
-    } catch (error) {
-      broken = `could not open the shop at ${SHOP} — is npm run dev running? (${String(error.message).split('\n')[0]})`
+  try {
+    for (const fix of toCheck) {
+      console.log(paint(2, `checking ${fix.what} in the shop (${SHOP}${fix.page})…`))
+      const startedMs = Date.now()
+      let broken = ''
+      const page = await browser.newPage()
+      page.setDefaultTimeout(10_000)
+      try {
+        const response = await page.goto(`${SHOP}${fix.page}`).catch(() => null)
+        if (!response) broken = `the shop does not answer at ${SHOP} — is npm run dev running? another port: BASE_URL=http://localhost:<port>`
+        else if (!response.ok()) broken = `${fix.page} answers ${response.status()} — the file may not compile: look at the npm run dev terminal`
+        else {
+          await page.waitForTimeout(1500)
+          broken = await fix.run(page).catch((error) => `the check could not do its step: ${String(error.message).split('\n')[0]}`)
+          // Stay a moment: the browser sends its spans every two seconds — the observer's proof needs them.
+          await page.waitForTimeout(3000)
+        }
+      } finally {
+        await page.close().catch(() => {})
+      }
+      // The proof from the telemetry: did this error arrive from this page while the mission was clicking?
+      if (!broken && fix.error) {
+        const defects = await ask('/api/defects?windowMs=3600000')
+        if (!defects) broken = 'the observer did not answer — npm run observer: the proof comes from it'
+        else if (defects.some((d) => fix.error(d) && d.lastSeenMs >= startedMs && (d.pages ?? []).some((p) => p.path === fix.page)))
+          broken = 'it still fails — the observer got the error again'
+      }
+      fixState.set(fix.what, { tried: true, broken })
     }
-    await page.close()
-    // The proof from the telemetry: did this error arrive from this page while the mission was clicking?
-    if (!broken && fix.error) {
-      await new Promise((resolve) => setTimeout(resolve, 3000)) // the browser sends its spans every two seconds
-      const defects = (await ask('/api/defects?windowMs=3600000')) ?? []
-      if (defects.some((d) => fix.error(d) && d.lastSeenMs >= startedMs && (d.pages ?? []).some((p) => p.path === fix.page)))
-        broken = 'it still fails — the observer got the error again'
-    }
-    fixState.set(fix.what, { tried: true, broken })
+  } finally {
+    await browser.close().catch(() => {})
   }
-  await browser.close()
 }
 
 // ── Mission 10: the bugs, as questions you answer from what the observer shows ────────────────────────────────────
