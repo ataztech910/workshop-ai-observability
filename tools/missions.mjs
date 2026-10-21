@@ -218,8 +218,11 @@ async function checkFixes() {
       } else if (!broken && !fix.error) {
         // The loop is not an error: the proof is the number of calls the observer saw while the mission typed.
         const calls = await ask(`/api/traces?operation=%2Fapi%2Fproducts&fromMs=${startedMs}&toMs=${endedMs}&limit=200`)
-        if (!calls) broken = 'the observer did not answer — npm run observer: the proof comes from it'
-        else console.log(`  the observer:  ${calls.length} calls to /api/products during the check — the loop makes about ten a second`)
+        if (!Array.isArray(calls)) broken = 'the observer did not answer — npm run observer: the proof comes from it'
+        else {
+          console.log(`  the observer:  ${calls.length} calls to /api/products during the check — the loop makes about ten a second`)
+          if (calls.length > 5) broken = `the observer saw ${calls.length} calls while typing — still the loop`
+        }
       }
       fixState.set(fix.what, { tried: true, broken })
     }
