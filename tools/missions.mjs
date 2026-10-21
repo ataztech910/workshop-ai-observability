@@ -127,9 +127,9 @@ const QUIZ = [
     key: 'deploy',
     q: 'v2 is slower: the banner names the request. Which function inside it takes the extra time?',
     accept: ['804572d688110ac7'],
-    where: 'the regression banner names the request — open one of its traces from v2: the span with the most time',
+    where: 'the regression banner names the request — Traces → that request, a slow one from v2 → the waterfall: the longest bar inside it',
   },
-  { key: 'stock', q: 'which operation fails about one time in three?', accept: ['0ca58540cd484b20', '964a3186fe078beb', '69c56a883cf5ecb8'], where: 'Overview → the error rate per operation' },
+  { key: 'stock', q: 'which operation fails about one time in three?', accept: ['0ca58540cd484b20', '964a3186fe078beb', '69c56a883cf5ecb8'], where: 'Overview → the busiest requests and their error rate, or Errors → the server-side error with the most hits' },
 ]
 const answers = readJson('.telemetry/answers.json')
 // The answers are kept as hashes, so they are not there to read at a glance — find them in the observer.
@@ -479,7 +479,7 @@ if (process.argv[2] === String(QUIZ_N) && process.argv[3]) {
   if (item && !answer && process.stdin.isTTY) {
     const prompt = createInterface({ input: process.stdin, output: process.stdout })
     try {
-      answer = (await prompt.question(`${paint(1, item.key)} — ${item.q}\n> `)).trim()
+      answer = (await prompt.question(`${paint(1, item.key)} — ${item.q}\n${paint(2, `where to look: ${item.where}`)}\n> `)).trim()
     } catch {
       console.log() // Ctrl+D or Ctrl+C: no answer
     } finally {
