@@ -1,7 +1,9 @@
-// npm run mission <N> — your checklist for mission N of part 2: what it is about, what to do, and what is done.
-// It reads your project files and what your receiver wrote to .telemetry/spans.ndjson; it never changes your code.
-// Without a number it shows the first mission that is not done yet.
-import { existsSync, readFileSync } from 'node:fs'
+// npm run mission <N> — your checklist for mission N: what it is about, what to do, and what is done.
+// It reads your project files, what your receiver wrote to .telemetry/spans.ndjson and, from part 3 on, the observer.
+// It never changes your code; it keeps your progress and quiz answers in .telemetry/. Without a number it shows the
+// first mission that is not done yet.
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { loadSpans } from './cases/spans.mjs'
 import { FIRST_SPAN, TREE, handSpans } from './mission.mjs'
 
@@ -50,6 +52,27 @@ const receiverUp = Boolean(health)
 const observerUp = typeof health?.spans === 'number'
 const services = observerUp ? ((await ask('/api/services')) ?? []) : []
 const inObserver = (name) => services.some((s) => s.name === name)
+const versionsOf = (name) => services.find((s) => s.name === name)?.versions ?? []
+const [v1At, v2At] = ['v1', 'v2'].map((v) => versionsOf(app.name).indexOf(v))
+// Done missions stay done (.telemetry/progress.json): the observer forgets on a restart, and its version comparison
+// only looks back so far — neither should send you back to a mission you finished.
+const readJson = (file) => {
+  try {
+    const value = JSON.parse(read(file) || '{}')
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+  } catch {
+    return {}
+  }
+}
+// Keyed by the mission's title, so a renumbering does not move a star. `npm run mission reset` forgets it all.
+const progress = readJson('.telemetry/progress.json')
+const keep = (file, value) => {
+  mkdirSync(new URL('.telemetry/', root), { recursive: true })
+  writeFileSync(new URL(file, root), JSON.stringify(value, null, 2))
+}
+// Part 4: can the observer compare the two deployments? It needs checkouts in both. Asked only until mission 9 is done.
+const regression =
+  observerUp && !progress['Two deployments'] ? (await ask(`/api/regression?service=${encodeURIComponent(app.name ?? '')}&sinceMinutes=1440`))?.regression : undefined
 // Your placeOrder spans as the observer has them (part 3): the traces, then the span with the reason in one of them.
 const placeOrderTraces = observerUp ? ((await ask('/api/traces?operation=placeOrder&exactOperation=true&limit=20')) ?? []) : []
 let reasonInObserver
@@ -88,6 +111,41 @@ function fromReceiver(mission, pick, missing) {
 }
 
 const ROUTE = 'app/api/checkout/route.ts'
+
+// ── Mission 10: the bugs, as questions you answer from what the observer shows ────────────────────────────────────
+// npm run mission 10 <key> <answer>. Accepted answers are kept in .telemetry/answers.json.
+const QUIZ = [
+  { key: 'click', q: 'product 1, ♡ Save for later does nothing. What does the code call on null?', word: true, accept: ['5d7761697ab69a64'], where: 'Errors → the uncaught error from product 1: read its message' },
+  { key: 'details', q: 'product 4, Show details breaks the page. Which component throws?', accept: ['d0aee3867bc22550'], where: 'Errors → the error after Show details: the component is named in it' },
+  { key: 'hydration', q: 'every product page: server and browser render different text. Which component?', accept: ['9dee5e384a4ee24b'], where: 'Errors → hydration mismatch: the message names the component' },
+  { key: 'reviews', q: 'product 2, reviews never load. What status does the reviews API answer?', word: true, accept: ['64acdb610ebf7b08'], where: 'Errors → the reviews error: the status is in its message' },
+  { key: 'checkout', q: 'Buy ×20 fails. Up to how many items does the shop allow?', word: true, accept: ['e66b4cb627b57e3d'], where: 'Traces → placeOrder of a refused order: order.rejected (your span from mission 5)' },
+  { key: 'search', q: 'typing in the search box: which request repeats over and over?', accept: ['e5b22981c3a23e7e'], where: 'Overview → the request with by far the most calls' },
+  { key: 'home', q: 'the home page: which function runs once per product, one after another?', accept: ['e58eb6cb984578e6'], where: 'Traces → GET / → the waterfall: the same name many times in a row' },
+  {
+    key: 'deploy',
+    q: 'v2 is slower: the banner names the request. Which function inside it takes the extra time?',
+    accept: ['804572d688110ac7'],
+    where: 'the regression banner names the request — open one of its traces from v2: the span with the most time',
+  },
+  { key: 'stock', q: 'which operation fails about one time in three?', accept: ['0ca58540cd484b20', '964a3186fe078beb', '69c56a883cf5ecb8'], where: 'Overview → the error rate per operation' },
+]
+const answers = readJson('.telemetry/answers.json')
+// The answers are kept as hashes, so they are not there to read at a glance — find them in the observer.
+const hash = (text) => createHash('sha256').update(`porto-7:${text}`).digest('hex').slice(0, 16)
+const norm = (text) => String(text).toLowerCase().replace(/[^a-z0-9]/g, '')
+/**
+ * A name is compared whole, ignoring case, punctuation, an HTTP method in front and a word like "component" after it
+ * ("GET /api/products", "<Viewers>", "getProductById()"). A short answer (a number, push) may be one word of a longer
+ * one ("HTTP 204", "reading 'push'").
+ */
+const correct = (item, answer) => {
+  const text = String(answer).trim().replace(/^(get|post|put|patch|delete)\s+/i, '').replace(/\s+(component|function|operation|span|request)$/i, '')
+  // A word of a short answer counts, but not a list of guesses: three words at most.
+  const words = String(answer).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  const tried = [norm(text), ...(item.word && words.length <= 3 ? words : [])]
+  return tried.some((t) => t && item.accept.includes(hash(t)))
+}
 
 // ── The missions ───────────────────────────────────────────────────────────────────────────────────────────────────
 const MISSIONS = [
@@ -342,16 +400,100 @@ const MISSIONS = [
     stuck: '"port 4318 is taken"? your receiver still runs — Ctrl+C it. Nothing arrives? npm run dev must be running too',
     done: 'the same OTLP, a different receiver — the shop did not change one line. Now look around: Traces, Errors, Overview.',
   },
+  {
+    title: 'Two deployments',
+    story: [
+      'Real shops change. Today Porto-7 ships two builds of the shop, v1 and then v2, with customers on both — and',
+      'every span carries its version (service.version), so the observer can tell one deployment from the next.',
+    ],
+    steps: [
+      'stop npm run dev (Ctrl+C) and start the first build instead: npm run dev:v1',
+      'in a third terminal: npm run users 60 — customers in a real browser — then npm run load 40 — server traffic',
+      'deploy the next build: Ctrl+C npm run dev:v1, then npm run dev:v2',
+      'the same customers again: npm run users 60, then npm run load 40',
+    ],
+    goals: [
+      { what: 'observer on 4318', outcome: true, ok: () => observerUp, hint: 'npm run observer (mission 8)' },
+      {
+        what: 'v1 deployed',
+        outcome: true,
+        ok: () => versionsOf(app.name).includes('v1'),
+        got: () => versionsOf(app.name).join(' → '),
+        hint: 'Ctrl+C npm run dev, then npm run dev:v1',
+      },
+      { what: 'customers on v1', outcome: true, ok: () => versionsOf(`${app.name}-browser`).includes('v1'), hint: 'while v1 runs: npm run users 60' },
+      {
+        what: 'v2 deployed after v1',
+        outcome: true,
+        ok: () => v1At >= 0 && v2At > v1At,
+        // The observer orders versions by when it first saw them: v2 seen first can only be fixed by starting over.
+        hint: v2At >= 0 && v2At < v1At ? 'the observer saw v2 before v1 — restart it (Ctrl+C, npm run observer), then dev:v1, then dev:v2' : 'Ctrl+C npm run dev:v1, then npm run dev:v2',
+      },
+      { what: 'customers on v2', outcome: true, ok: () => versionsOf(`${app.name}-browser`).includes('v2'), hint: 'while v2 runs: npm run users 60' },
+      {
+        what: 'enough to compare',
+        outcome: true,
+        ok: () => Boolean(regression),
+        hint: 'npm run load 40 on v1 and again on v2 — comparing needs checkouts in both versions',
+      },
+    ],
+    stuck: "the shop is not answering? use the port npm run dev:v1 printed: BASE_URL=http://localhost:<port> npm run users 60 (and the same for npm run load)",
+    done: 'two deployments on record, with customers on both — like a real release. Now: what broke between them?',
+  },
+  {
+    title: 'Find the bugs',
+    quiz: true,
+    story: [
+      "v2 is out. Sandy-9 complains, Kevin's dashboard is green, and Lord Manager wants names. Nine things are wrong:",
+      'six you met as a customer in part 1, three that only the telemetry shows. Find each one in the observer —',
+      'no DevTools, no code — and name it.',
+    ],
+    steps: [
+      'open the observer: Errors, Overview, Traces (click one for its waterfall), the banner on top',
+      'answer each question below, the answer in quotes: npm run mission 10 <key> "<answer>"   e.g. npm run mission 10 home "the name you found"',
+      'a wrong answer tells you where to look — not the answer',
+    ],
+    // Checked when the list is printed — after an answer given in this same run has been kept.
+    goals: QUIZ.map((item) => {
+      const right = () => correct(item, answers[item.key] ?? '')
+      return { what: item.key, outcome: true, ok: right, got: () => (right() ? String(answers[item.key]) : ''), hint: item.q }
+    }),
+    stuck: 'nothing in Errors? npm run users 60 again — the customers make the browser bugs happen',
+    done: 'nine bugs named from the telemetry alone. How many did you notice by hand in part 1?',
+  },
 ]
+
+// ── An answer for mission 10: npm run mission 10 <key> <answer> ─────────────────────────────────────────────────────
+const QUIZ_N = MISSIONS.findIndex((m) => m.quiz) + 1
+if (process.argv[2] === 'reset') {
+  keep('.telemetry/progress.json', {})
+  keep('.telemetry/answers.json', {})
+  console.log('progress and quiz answers forgotten — every mission is checked from scratch again')
+  process.exit(0)
+}
+if (process.argv[2] === String(QUIZ_N) && process.argv[3]) {
+  const item = QUIZ.find((q) => q.key === process.argv[3].toLowerCase())
+  const answer = process.argv.slice(4).join(' ')
+  if (!item) console.log(paint(31, `no question "${process.argv[3]}" — the keys: ${QUIZ.map((q) => q.key).join(', ')}`))
+  else if (!answer) console.log(paint(31, `the answer is missing: npm run mission ${QUIZ_N} ${item.key} "<answer>"`))
+  else if (correct(item, answer)) {
+    answers[item.key] = answer
+    keep('.telemetry/answers.json', answers)
+    console.log(paint(32, `✓ ${item.key}: ${answer} — right`))
+  } else console.log(paint(31, `✗ ${item.key}: "${answer}" — not quite. Look at: ${item.where}  (put the answer in quotes)`))
+  console.log()
+}
 
 // ── Which mission, and the printout ────────────────────────────────────────────────────────────────────────────────
 // A mission is complete when what it is for has arrived (the outcome goals). The "uncomment" items are the way there —
 // someone who caught up with --solution or a tag has the result without having uncommented your copy of the lines.
 const results = MISSIONS.map((m) => m.goals.map((g) => ({ ...g, done: g.ok() })))
-const complete = results.map((r) => r.filter((g) => g.outcome).every((g) => g.done) && r.some((g) => g.outcome))
+const live = results.map((r) => r.filter((g) => g.outcome).every((g) => g.done) && r.some((g) => g.outcome))
+const complete = live.map((done, i) => done || progress[MISSIONS[i].title] === true)
+if (live.some((done, i) => done && !progress[MISSIONS[i].title])) keep('.telemetry/progress.json', { ...progress, ...Object.fromEntries(live.flatMap((done, i) => (done ? [[MISSIONS[i].title, true]] : []))) })
 const asked = Number(process.argv[2])
 if (process.argv[2] && !(Number.isInteger(asked) && asked >= 1 && asked <= MISSIONS.length)) {
-  console.log(`usage: npm run mission <1–${MISSIONS.length}>`)
+  console.log(`usage: npm run mission <1–${MISSIONS.length}>   ·   npm run mission reset — start the checks over`)
   process.exit(1)
 }
 const n = asked || complete.indexOf(false) + 1 || MISSIONS.length
