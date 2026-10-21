@@ -71,10 +71,10 @@ const keep = (file, value) => {
   mkdirSync(new URL('.telemetry/', root), { recursive: true })
   writeFileSync(new URL(file, root), JSON.stringify(value, null, 2))
 }
-// Part 4: can the observer compare the two deployments? It needs checkouts in both. Asked only until mission 9 is done.
 // Part 4: the observer's patrol (observe.checks.ts) — mission 12.
 const patrol = observerUp ? ((await ask('/api/checks'))?.checks ?? []) : []
 const check = (name) => patrol.find((c) => c.name === name)
+// Part 4: can the observer compare the two deployments? It needs checkouts in both. Asked only until mission 9 is done.
 const regression =
   observerUp && !progress['Two deployments'] ? (await ask(`/api/regression?service=${encodeURIComponent(app.name ?? '')}&sinceMinutes=1440`))?.regression : undefined
 // Your placeOrder spans as the observer has them (part 3): the traces, then the span with the reason in one of them.
