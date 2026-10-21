@@ -125,9 +125,10 @@ const QUIZ = [
   { key: 'home', q: 'the home page: which function runs once per product, one after another?', accept: ['e58eb6cb984578e6'], where: 'Traces → GET / → the waterfall: the same name many times in a row' },
   {
     key: 'deploy',
-    q: 'v2 is slower: the card in the bottom right corner names the request. Which function inside it takes the extra time?',
+    q: 'v2 made one request much slower. Which function inside it takes the extra time?',
     accept: ['804572d688110ac7'],
-    where: 'the card "v2 looks like a regression" (bottom right) names the request — Traces → that request, a slow one from v2 → the waterfall: the longest bar inside it',
+    where:
+      'Overview (1h) → Slowest: the request at the top → Traces: type its name, Min ms 1000 → open one → the waterfall: the longest bar inside it (the card "v2 looks like a regression", bottom right, names the request too)',
   },
   { key: 'stock', q: 'which operation fails about one time in three?', accept: ['0ca58540cd484b20', '964a3186fe078beb', '69c56a883cf5ecb8'], where: 'Overview → the busiest requests and their error rate, or Errors → the server-side error with the most hits' },
 ]
