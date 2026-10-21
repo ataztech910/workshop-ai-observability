@@ -136,7 +136,7 @@ const QUIZ = [
     where:
       'Traces → type the slow request in "Operation contains…", Min ms 1000 → open one. In the waterfall the long bars sit inside each other like stairs — the time is spent on the bottom step: the last long bar with nothing long under it',
   },
-  { key: 'stock', q: 'which operation fails about one time in three?', accept: ['0ca58540cd484b20', '964a3186fe078beb', '69c56a883cf5ecb8'], where: 'Overview → the busiest requests and their error rate, or Errors → the server-side error with the most hits' },
+  { key: 'stock', q: 'which operation fails about one time in three?', accept: ['0ca58540cd484b20', '964a3186fe078beb', '69c56a883cf5ecb8'], where: 'Errors, period 1h → the entry marked server: under its message it says in which function it fails' },
 ]
 const answers = readJson('.telemetry/answers.json')
 // The answers are kept as hashes, so they are not there to read at a glance — find them in the observer.
