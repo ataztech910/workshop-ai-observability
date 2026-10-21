@@ -127,6 +127,7 @@ const FIXES = [
       await page.getByRole('button', { name: /Save for later/ }).click()
       await page.waitForTimeout(800)
       const text = await page.getByRole('button', { name: /Save|Saved/ }).innerText()
+      shown = `clicked ♡ Save for later → ${text}`
       return text.includes('Saved') ? '' : 'the button did not turn into ♥ Saved'
     },
   },
@@ -139,6 +140,7 @@ const FIXES = [
     // Positive: the reviews list renders (empty — product 2 has none). A page that does not render at all is not fixed.
     run: async (page) => {
       const list = await page.locator('ul.reviews').waitFor({ state: 'attached', timeout: 10_000 }).then(() => true, () => false)
+      shown = list ? 'product 2 shows its reviews section (no reviews) instead of "Loading reviews…"' : 'product 2: still "Loading reviews…"'
       return list ? '' : 'product 2 never shows its reviews list — still "Loading reviews…" or the page does not render'
     },
   },
@@ -153,12 +155,20 @@ const FIXES = [
       page.on('request', (r) => r.url().includes('/api/products?q=') && calls++)
       await page.getByRole('searchbox').pressSequentially('mug', { delay: 150 })
       await page.waitForTimeout(3000)
+      shown = `typed mug → ${calls} search requests in 3 seconds`
       return calls <= 5 ? '' : `${calls} search requests in 3 seconds — still the loop`
     },
   },
 ]
 /** Filled by checkFixes() — only on `npm run mission 11` (it opens Chrome), read by mission 11's checklist. */
 const fixState = new Map()
+let shown = '' // what the shop showed during a check — printed with the observer's numbers
+const clock = (ms) => new Date(ms).toLocaleTimeString('en-GB')
+/** This error as the observer has it, from this page: how many times, and when last. */
+const onRecord = (defects, fix) => {
+  const mine = defects.filter((d) => fix.error(d) && (d.pages ?? []).some((p) => p.path === fix.page))
+  return { count: mine.reduce((n, d) => n + d.count, 0), lastMs: Math.max(0, ...mine.map((d) => d.lastSeenMs)) }
+}
 async function checkFixes() {
   const toCheck = FIXES.filter((f) => active(f.file, f.line))
   if (toCheck.length === 0) return
@@ -172,8 +182,10 @@ async function checkFixes() {
   }
   try {
     for (const fix of toCheck) {
-      console.log(paint(2, `checking ${fix.what} in the shop (${SHOP}${fix.page})…`))
+      console.log(paint(36, `checking ${fix.what} in the shop (${SHOP}${fix.page})…`))
+      const before = fix.error ? onRecord((await ask('/api/defects?windowMs=86400000')) ?? [], fix) : undefined
       const startedMs = Date.now()
+      shown = ''
       let broken = ''
       const page = await browser.newPage()
       page.setDefaultTimeout(10_000)
@@ -190,12 +202,24 @@ async function checkFixes() {
       } finally {
         await page.close().catch(() => {})
       }
-      // The proof from the telemetry: did this error arrive from this page while the mission was clicking?
+      const endedMs = Date.now()
+      if (shown) console.log(`  the shop:      ${shown}`)
+      // The proof from the telemetry: what the observer recorded before, and during the mission's own clicks.
       if (!broken && fix.error) {
-        const defects = await ask('/api/defects?windowMs=3600000')
+        const defects = await ask('/api/defects?windowMs=86400000')
         if (!defects) broken = 'the observer did not answer — npm run observer: the proof comes from it'
-        else if (defects.some((d) => fix.error(d) && d.lastSeenMs >= startedMs && (d.pages ?? []).some((p) => p.path === fix.page)))
-          broken = 'it still fails — the observer got the error again'
+        else {
+          const after = onRecord(defects, fix)
+          const during = after.lastMs >= startedMs ? Math.max(1, after.count - before.count) : 0
+          console.log(`  the observer:  this error from ${fix.page} — ${before.count} times before${before.lastMs ? `, last at ${clock(before.lastMs)}` : ''}`)
+          console.log(`                 during the check (${clock(startedMs)}–${clock(endedMs)}): ${during}`)
+          if (during) broken = 'it still fails — the observer got the error again'
+        }
+      } else if (!broken && !fix.error) {
+        // The loop is not an error: the proof is the number of calls the observer saw while the mission typed.
+        const calls = await ask(`/api/traces?operation=%2Fapi%2Fproducts&fromMs=${startedMs}&toMs=${endedMs}&limit=200`)
+        if (!calls) broken = 'the observer did not answer — npm run observer: the proof comes from it'
+        else console.log(`  the observer:  ${calls.length} calls to /api/products during the check — the loop makes about ten a second`)
       }
       fixState.set(fix.what, { tried: true, broken })
     }
@@ -570,8 +594,10 @@ const MISSIONS = [
     ],
     steps: [
       'pick one: app/product/[id]/wishlist.tsx (Save for later), app/product/[id]/reviews.tsx (reviews), app/search.tsx (search)',
+      'before you fix it, look: observer → Errors (1h) → its entry — note how many times it happened and "last seen"',
       'uncomment the ▶ line in it and read the "Why" — the dev server picks the change up on save',
-      'npm run mission 11 — it opens the shop in its own browser, tries exactly that, and asks the observer if the error came',
+      'npm run mission 11 — it opens the shop in its own browser, does exactly that, and prints what the observer saw',
+      'look again: the same entry in Errors did not grow, "last seen" is still from before your fix — that is the proof',
     ],
     goals: FIXES.map((fix) => ({
       what: fix.what,
@@ -589,14 +615,14 @@ const MISSIONS = [
       },
     })),
     stuck: 'the shop is not on port 3000? BASE_URL=http://localhost:<port> npm run mission 11',
-    done: 'one bug gone, and the telemetry proves it — the error stopped coming. Fixed means: fixed in production, not "it works on my machine".',
+    done: 'one bug gone — and you saw the proof: the error stopped coming while the shop was used. Fixed means the telemetry says so, not "it works on my machine".',
   },
 ]
 
 // ── An answer for mission 10: npm run mission 10 <key> <answer> ─────────────────────────────────────────────────────
 const QUIZ_N = MISSIONS.findIndex((m) => m.quiz) + 1
 const FIX_N = MISSIONS.findIndex((m) => m.title === 'Fix one') + 1
-if (process.argv[2] === String(FIX_N) && !progress['Fix one']) await checkFixes()
+if (process.argv[2] === String(FIX_N)) await checkFixes()
 if (process.argv[2] === 'reset') {
   keep('.telemetry/progress.json', {})
   keep('.telemetry/answers.json', {})
