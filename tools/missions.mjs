@@ -125,11 +125,12 @@ const QUIZ = [
   { key: 'home', q: 'the home page: which function runs once per product, one after another?', accept: ['e58eb6cb984578e6'], where: 'Traces → GET / → the waterfall: the same name many times in a row' },
   {
     key: 'deploy',
-    q: 'v2 is slower: the banner names the request. Which function inside it takes the extra time?',
+    q: 'v2 made one request much slower. Which function inside it takes the extra time?',
     accept: ['804572d688110ac7'],
-    where: 'the regression banner names the request — open one of its traces from v2: the span with the most time',
+    where:
+      'Overview (1h) → Slowest: the request at the top → Traces: type its name, Min ms 1000 → open one → the waterfall: the longest bar inside it (the card "v2 looks like a regression", bottom right, names the request too)',
   },
-  { key: 'stock', q: 'which operation fails about one time in three?', accept: ['0ca58540cd484b20', '964a3186fe078beb', '69c56a883cf5ecb8'], where: 'Overview → the error rate per operation' },
+  { key: 'stock', q: 'which operation fails about one time in three?', accept: ['0ca58540cd484b20', '964a3186fe078beb', '69c56a883cf5ecb8'], where: 'Overview → the busiest requests and their error rate, or Errors → the server-side error with the most hits' },
 ]
 const answers = readJson('.telemetry/answers.json')
 // The answers are kept as hashes, so they are not there to read at a glance — find them in the observer.
@@ -450,7 +451,8 @@ const MISSIONS = [
       'no DevTools, no code — and name it.',
     ],
     steps: [
-      'open the observer: Errors, Overview, Traces (click one for its waterfall), the banner on top',
+      'open the observer: Errors, Overview, Traces (click one for its waterfall), and the card in the bottom right corner',
+      'the observer shows the last 15 minutes by default — pick 1h at the top of Errors and Overview, or nothing older shows',
       'answer a question: npm run mission 10 <key> — e.g. npm run mission 10 home — it asks for the answer',
       'a wrong answer tells you where to look — not the answer',
     ],
@@ -459,7 +461,7 @@ const MISSIONS = [
       const right = () => correct(item, answers[item.key] ?? '')
       return { what: item.key, outcome: true, ok: right, got: () => (right() ? String(answers[item.key]) : ''), hint: item.q }
     }),
-    stuck: 'nothing in Errors? npm run users 60 again — the customers make the browser bugs happen',
+    stuck: 'too little in Errors? pick 1h at the top; still nothing — npm run users 60 again, the customers make the browser bugs happen',
     done: 'nine bugs named from the telemetry alone. How many did you notice by hand in part 1?',
   },
 ]
@@ -479,7 +481,7 @@ if (process.argv[2] === String(QUIZ_N) && process.argv[3]) {
   if (item && !answer && process.stdin.isTTY) {
     const prompt = createInterface({ input: process.stdin, output: process.stdout })
     try {
-      answer = (await prompt.question(`${paint(1, item.key)} — ${item.q}\n> `)).trim()
+      answer = (await prompt.question(`${paint(1, item.key)} — ${item.q}\n${paint(2, `where to look: ${item.where}`)}\n> `)).trim()
     } catch {
       console.log() // Ctrl+D or Ctrl+C: no answer
     } finally {
