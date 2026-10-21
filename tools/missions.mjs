@@ -71,6 +71,9 @@ const keep = (file, value) => {
   mkdirSync(new URL('.telemetry/', root), { recursive: true })
   writeFileSync(new URL(file, root), JSON.stringify(value, null, 2))
 }
+// Part 4: the observer's patrol (observe.checks.ts) — mission 12.
+const patrol = observerUp ? ((await ask('/api/checks'))?.checks ?? []) : []
+const check = (name) => patrol.find((c) => c.name === name)
 // Part 4: can the observer compare the two deployments? It needs checkouts in both. Asked only until mission 9 is done.
 const regression =
   observerUp && !progress['Two deployments'] ? (await ask(`/api/regression?service=${encodeURIComponent(app.name ?? '')}&sinceMinutes=1440`))?.regression : undefined
@@ -619,6 +622,54 @@ const MISSIONS = [
     })),
     stuck: 'the shop is not on port 3000? BASE_URL=http://localhost:<port> npm run mission 11',
     done: 'one bug gone — and you saw the proof: the error stopped coming while the shop was used. Fixed means the telemetry says so, not "it works on my machine".',
+  },
+  {
+    title: 'The night patrol',
+    story: [
+      'At 3 am nobody buys, so nobody complains — and v2 is slow. The observer can be the customer: it asks the shop on a',
+      'timer what must stay true, and a check that fails twice in a row becomes an anomaly. Nobody needs to click.',
+    ],
+    steps: [
+      'the shop runs as v2 (npm run dev:v2) — stop npm run users and npm run load: no traffic at all',
+      'observe.checks.ts — uncomment the three ▶ lines; the observer picks the file up while it runs (its terminal says "checks reloaded")',
+      'wait half a minute, then open the observer → Checks',
+      'bonus: copy a line, make a check of your own — another page, another limit',
+    ],
+    goals: [
+      { ...uncomment('observe.checks.ts', 'home page'), ok: () => active('observe.checks.ts', /name: 'home page shows the shop'/) },
+      { ...uncomment('observe.checks.ts', 'checkout speed'), ok: () => active('observe.checks.ts', /name: 'checkout takes under a second'/) },
+      { ...uncomment('observe.checks.ts', 'refuses 99'), ok: () => active('observe.checks.ts', /name: 'checkout refuses 99 items'/) },
+      {
+        what: 'the observer patrols',
+        outcome: true,
+        ok: () => patrol.length > 0,
+        got: () => `${patrol.length} checks`,
+        hint: observerUp ? 'save observe.checks.ts — the observer reloads it; is it in the shop folder?' : 'npm run observer (mission 8)',
+      },
+      {
+        what: 'the shop is up',
+        outcome: true,
+        ok: () => check('home page shows the shop')?.last?.ok === true,
+        got: () => check('home page shows the shop')?.last?.reason ?? '',
+        hint: 'npm run dev:v2 must be running on port 3000 (or set OBSERVE_APP_URL for the observer)',
+      },
+      {
+        what: 'slow v2 caught',
+        outcome: true,
+        ok: () => (check('checkout takes under a second')?.failures ?? 0) >= 2,
+        got: () => check('checkout takes under a second')?.last?.reason ?? '',
+        hint: 'the shop must be v2 (npm run dev:v2), then wait: it takes two failed runs, 10 s apart',
+      },
+      {
+        what: 'the rule holds',
+        outcome: true,
+        ok: () => check('checkout refuses 99 items')?.last?.ok === true,
+        got: () => check('checkout refuses 99 items')?.last?.reason ?? '',
+        hint: 'wait for its first run (10 s)',
+      },
+    ],
+    stuck: 'the checks do not appear? the observer reads observe.checks.ts from the folder it was started in — start npm run observer in the shop folder',
+    done: 'the patrol caught the slow v2 by itself — nobody was buying. This is how Kevin hears about it at 3 am, before Sandy-9 does.',
   },
 ]
 
