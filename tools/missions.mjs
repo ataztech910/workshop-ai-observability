@@ -465,7 +465,7 @@ const MISSIONS = [
     // Checked when the list is printed — after an answer given in this same run has been kept.
     goals: QUIZ.map((item) => {
       const right = () => correct(item, answers[item.key] ?? '')
-      return { what: item.key, outcome: true, ok: right, got: () => (right() ? String(answers[item.key]) : ''), hint: item.q }
+      return { what: item.key, outcome: true, ok: right, got: () => (right() ? String(answers[item.key]) : ''), hint: `${item.q}  → npm run mission 10 ${item.key}` }
     }),
     stuck: 'too little in Errors? pick 1h at the top; still nothing — npm run users 60 again, the customers make the browser bugs happen',
     done: 'nine bugs named from the telemetry alone. How many did you notice by hand in part 1?',
