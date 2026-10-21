@@ -3,7 +3,7 @@
 // It never changes your code; it keeps your progress and quiz answers in .telemetry/. Without a number it shows the
 // first mission that is not done yet.
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { createInterface } from 'node:readline/promises'
 import { loadSpans } from './cases/spans.mjs'
 import { FIRST_SPAN, TREE, handSpans } from './mission.mjs'
@@ -112,6 +112,65 @@ function fromReceiver(mission, pick, missing) {
 }
 
 const ROUTE = 'app/api/checkout/route.ts'
+
+// ── Mission 11: a fix counts when its line is uncommented AND, since the file changed, the shop was used there and the
+// error did not come back. The observer is asked only while mission 11 is not done.
+const FIXES = [
+  {
+    what: 'Save for later',
+    file: 'app/product/[id]/wishlist.tsx',
+    line: /list \?\?= \[\]/,
+    error: (d) => String(d.message).includes("reading 'push'"),
+    traffic: '/api/traces?operation=GET%20%2Fproduct&limit=1',
+    use: 'in the shop: product 1 → ♡ Save for later — it should turn into ♥ Saved',
+  },
+  {
+    what: 'reviews',
+    file: 'app/product/[id]/reviews.tsx',
+    line: /if \(res\.status === 204\) return \[\]/,
+    error: (d) => String(d.message).includes('is not JSON') || String(d.message).includes("execute 'json'"),
+    traffic: '/api/traces?operation=reviews&limit=1',
+    use: 'in the shop: open product 2 — its reviews section should stop saying "Loading reviews…"',
+  },
+  {
+    what: 'search',
+    file: 'app/search.tsx',
+    line: /changesWhen = filter\.q/,
+    // No error here: the loop shows as calls — about ten a second, without end. After the fix typing makes one request
+    // per keystroke, so no second has five.
+    loop: true,
+    traffic: '/api/traces?operation=%2Fapi%2Fproducts&limit=200',
+    use: 'in the shop: type mug in the search box — the results should appear once, not flicker',
+  },
+]
+const changedAt = (file) => {
+  try {
+    return statSync(new URL(file, root)).mtimeMs
+  } catch {
+    return Infinity
+  }
+}
+const fixes = []
+for (const fix of FIXES) {
+  const uncommented = active(fix.file, fix.line)
+  const since = changedAt(fix.file)
+  let used = false
+  let clean = false
+  if (uncommented && observerUp && !progress['Fix one']) {
+    const after = (await ask(`${fix.traffic}&fromMs=${Math.floor(since)}`)) ?? []
+    if (fix.loop) {
+      const perSecond = new Map()
+      for (const t of after) perSecond.set(Math.floor(t.startTimeMs / 1000), (perSecond.get(Math.floor(t.startTimeMs / 1000)) ?? 0) + 1)
+      used = after.length > 0
+      clean = used && Math.max(...perSecond.values()) < 5
+    } else {
+      used = after.length > 0
+      const defects = (await ask('/api/defects?windowMs=86400000')) ?? []
+      clean = !defects.some((d) => fix.error(d) && d.lastSeenMs > since)
+    }
+  }
+  fixes.push({ ...fix, uncommented, used, clean })
+}
 
 // ── Mission 10: the bugs, as questions you answer from what the observer shows ────────────────────────────────────
 // npm run mission 10 <key> <answer>. Accepted answers are kept in .telemetry/answers.json.
@@ -470,6 +529,36 @@ const MISSIONS = [
     stuck: 'too little in Errors? pick 1h at the top; still nothing — npm run users 60 again, the customers make the browser bugs happen',
     done: 'nine bugs named from the telemetry alone. How many did you notice by hand in part 1?',
   },
+  {
+    title: 'Fix one',
+    anyOf: true,
+    story: [
+      'Names are not enough: Lord Manager wants one bug gone today. The fix for three of them is already in the code,',
+      'commented out right next to the bug. Uncomment one — then prove it with the telemetry: the error stops coming.',
+    ],
+    steps: [
+      'pick one: app/product/[id]/wishlist.tsx (Save for later), app/product/[id]/reviews.tsx (reviews), app/search.tsx (search)',
+      'uncomment the ▶ line in it and read the "Why" — the dev server picks the change up on save',
+      'use that part of the shop again (each line below says how), then npm run mission 11',
+    ],
+    goals: fixes.map((fix) => ({
+      what: fix.what,
+      outcome: true,
+      ok: () => fix.uncommented && fix.used && fix.clean,
+      got: () => (!fix.uncommented ? '' : !fix.used ? 'fixed, not used yet' : fix.clean ? 'gone' : 'still there'),
+      hint: !fix.uncommented
+        ? `${fix.file} — uncomment the ▶ line`
+        : !observerUp
+          ? 'npm run observer — the proof comes from the observer'
+          : !fix.used
+            ? fix.use
+            : fix.loop
+              ? 'still many requests — reload the shop page so the browser gets the fixed code, then type again'
+              : 'the error came again after your change — reload the shop page so the browser gets the fixed code, then try again',
+    })),
+    stuck: 'the line is uncommented but the error is still there? the browser keeps the old code until the page reloads',
+    done: 'one bug gone, and the telemetry proves it — the error stopped coming. Fixed means: fixed in production, not "it works on my machine".',
+  },
 ]
 
 // ── An answer for mission 10: npm run mission 10 <key> <answer> ─────────────────────────────────────────────────────
@@ -508,7 +597,7 @@ if (process.argv[2] === String(QUIZ_N) && process.argv[3]) {
 // A mission is complete when what it is for has arrived (the outcome goals). The "uncomment" items are the way there —
 // someone who caught up with --solution or a tag has the result without having uncommented your copy of the lines.
 const results = MISSIONS.map((m) => m.goals.map((g) => ({ ...g, done: g.ok() })))
-const live = results.map((r) => r.filter((g) => g.outcome).every((g) => g.done) && r.some((g) => g.outcome))
+const live = results.map((r, i) => (MISSIONS[i].anyOf ? r.some((g) => g.outcome && g.done) : r.filter((g) => g.outcome).every((g) => g.done) && r.some((g) => g.outcome)))
 const complete = live.map((done, i) => done || progress[MISSIONS[i].title] === true)
 if (live.some((done, i) => done && !progress[MISSIONS[i].title])) keep('.telemetry/progress.json', { ...progress, ...Object.fromEntries(live.flatMap((done, i) => (done ? [[MISSIONS[i].title, true]] : []))) })
 const asked = Number(process.argv[2])
@@ -530,7 +619,7 @@ if (complete[n - 1]) {
   console.log(`\n${paint(33, `★ Mission ${n} complete — ${mission.done}`)}`)
   if (n < MISSIONS.length) console.log(paint(2, `  next: npm run mission ${n + 1}`))
 } else {
-  console.log(`\n${paint(1, 'Check')}  ${goals.filter((g) => g.done).length}/${goals.length}`)
+  console.log(`\n${paint(1, 'Check')}  ${goals.filter((g) => g.done).length}/${goals.length}${mission.anyOf ? '  (one is enough)' : ''}`)
   for (const g of goals) {
     const mark = g.done ? paint(32, '✓') : paint(31, '✗')
     console.log(`  ${mark} ${g.what.padEnd(24)} ${(g.got?.() ?? '').padEnd(16)} ${g.done ? '' : paint(2, `← ${g.hint}`)}`)
