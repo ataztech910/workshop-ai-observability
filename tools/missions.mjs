@@ -3,7 +3,7 @@
 // It never changes your code; it keeps your progress and quiz answers in .telemetry/. Without a number it shows the
 // first mission that is not done yet.
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createInterface } from 'node:readline/promises'
 import { loadSpans } from './cases/spans.mjs'
 import { FIRST_SPAN, TREE, handSpans } from './mission.mjs'
@@ -113,63 +113,85 @@ function fromReceiver(mission, pick, missing) {
 
 const ROUTE = 'app/api/checkout/route.ts'
 
-// ── Mission 11: a fix counts when its line is uncommented AND, since the file changed, the shop was used there and the
-// error did not come back. The observer is asked only while mission 11 is not done.
+// ── Mission 11: a fix counts when its line is uncommented AND it works: the mission opens the shop in its own browser
+// (fresh, with the new code), does exactly that thing, and then asks the observer whether the error came during it.
+const SHOP = process.env.BASE_URL ?? 'http://localhost:3000'
 const FIXES = [
   {
     what: 'Save for later',
     file: 'app/product/[id]/wishlist.tsx',
     line: /list \?\?= \[\]/,
+    page: '/product/1',
     error: (d) => String(d.message).includes("reading 'push'"),
-    traffic: '/api/traces?operation=GET%20%2Fproduct&limit=1',
-    use: 'in the shop: product 1 → ♡ Save for later — it should turn into ♥ Saved',
+    run: async (page) => {
+      await page.getByRole('button', { name: /Save for later/ }).click()
+      await page.waitForTimeout(800)
+      const text = await page.getByRole('button', { name: /Save|Saved/ }).innerText()
+      return text.includes('Saved') ? '' : 'the button did not turn into ♥ Saved'
+    },
   },
   {
     what: 'reviews',
     file: 'app/product/[id]/reviews.tsx',
     line: /if \(res\.status === 204\) return \[\]/,
+    page: '/product/2',
     error: (d) => String(d.message).includes('is not JSON') || String(d.message).includes("execute 'json'"),
-    traffic: '/api/traces?operation=reviews&limit=1',
-    use: 'in the shop: open product 2 — its reviews section should stop saying "Loading reviews…"',
+    run: async (page) => {
+      await page.waitForTimeout(3000)
+      return (await page.locator('body').innerText()).includes('Loading reviews') ? 'product 2 still says "Loading reviews…"' : ''
+    },
   },
   {
     what: 'search',
     file: 'app/search.tsx',
     line: /changesWhen = filter\.q/,
-    // No error here: the loop shows as calls — about ten a second, without end. After the fix typing makes one request
-    // per keystroke, so no second has five.
-    loop: true,
-    traffic: '/api/traces?operation=%2Fapi%2Fproducts&limit=200',
-    use: 'in the shop: type mug in the search box — the results should appear once, not flicker',
+    page: '/',
+    // The loop is not an error, it is calls: about ten a second without end. Fixed, typing makes one per keystroke.
+    run: async (page) => {
+      let calls = 0
+      page.on('request', (r) => r.url().includes('/api/products?q=') && calls++)
+      await page.getByRole('searchbox').pressSequentially('mug', { delay: 150 })
+      await page.waitForTimeout(3000)
+      return calls <= 5 ? '' : `${calls} search requests in 3 seconds — still the loop`
+    },
   },
 ]
-const changedAt = (file) => {
+/** Filled by checkFixes() — only on `npm run mission 11` (it opens Chrome), read by mission 11's checklist. */
+const fixState = new Map()
+async function checkFixes() {
+  const toCheck = FIXES.filter((f) => active(f.file, f.line))
+  if (toCheck.length === 0) return
+  let browser
   try {
-    return statSync(new URL(file, root)).mtimeMs
-  } catch {
-    return Infinity
+    const { chromium } = await import('playwright-core')
+    browser = await chromium.launch({ channel: 'chrome' })
+  } catch (error) {
+    console.log(paint(31, `could not start Chrome for the check: ${String(error.message).split('\n')[0]}`))
+    return
   }
-}
-const fixes = []
-for (const fix of FIXES) {
-  const uncommented = active(fix.file, fix.line)
-  const since = changedAt(fix.file)
-  let used = false
-  let clean = false
-  if (uncommented && observerUp && !progress['Fix one']) {
-    const after = (await ask(`${fix.traffic}&fromMs=${Math.floor(since)}`)) ?? []
-    if (fix.loop) {
-      const perSecond = new Map()
-      for (const t of after) perSecond.set(Math.floor(t.startTimeMs / 1000), (perSecond.get(Math.floor(t.startTimeMs / 1000)) ?? 0) + 1)
-      used = after.length > 0
-      clean = used && Math.max(...perSecond.values()) < 5
-    } else {
-      used = after.length > 0
-      const defects = (await ask('/api/defects?windowMs=86400000')) ?? []
-      clean = !defects.some((d) => fix.error(d) && d.lastSeenMs > since)
+  for (const fix of toCheck) {
+    console.log(paint(2, `checking ${fix.what} in the shop (${SHOP}${fix.page})…`))
+    const startedMs = Date.now()
+    const page = await browser.newPage()
+    let broken = ''
+    try {
+      await page.goto(`${SHOP}${fix.page}`)
+      await page.waitForTimeout(1500)
+      broken = await fix.run(page)
+    } catch (error) {
+      broken = `could not open the shop at ${SHOP} — is npm run dev running? (${String(error.message).split('\n')[0]})`
     }
+    await page.close()
+    // The proof from the telemetry: did this error arrive from this page while the mission was clicking?
+    if (!broken && fix.error) {
+      await new Promise((resolve) => setTimeout(resolve, 3000)) // the browser sends its spans every two seconds
+      const defects = (await ask('/api/defects?windowMs=3600000')) ?? []
+      if (defects.some((d) => fix.error(d) && d.lastSeenMs >= startedMs && (d.pages ?? []).some((p) => p.path === fix.page)))
+        broken = 'it still fails — the observer got the error again'
+    }
+    fixState.set(fix.what, { tried: true, broken })
   }
-  fixes.push({ ...fix, uncommented, used, clean })
+  await browser.close()
 }
 
 // ── Mission 10: the bugs, as questions you answer from what the observer shows ────────────────────────────────────
@@ -539,30 +561,32 @@ const MISSIONS = [
     steps: [
       'pick one: app/product/[id]/wishlist.tsx (Save for later), app/product/[id]/reviews.tsx (reviews), app/search.tsx (search)',
       'uncomment the ▶ line in it and read the "Why" — the dev server picks the change up on save',
-      'use that part of the shop again (each line below says how), then npm run mission 11',
+      'npm run mission 11 — it opens the shop in its own browser, tries exactly that, and asks the observer if the error came',
     ],
-    goals: fixes.map((fix) => ({
+    goals: FIXES.map((fix) => ({
       what: fix.what,
       outcome: true,
-      ok: () => fix.uncommented && fix.used && fix.clean,
-      got: () => (!fix.uncommented ? '' : !fix.used ? 'fixed, not used yet' : fix.clean ? 'gone' : 'still there'),
-      hint: !fix.uncommented
-        ? `${fix.file} — uncomment the ▶ line`
-        : !observerUp
-          ? 'npm run observer — the proof comes from the observer'
-          : !fix.used
-            ? fix.use
-            : fix.loop
-              ? 'still many requests — reload the shop page so the browser gets the fixed code, then type again'
-              : 'the error came again after your change — reload the shop page so the browser gets the fixed code, then try again',
+      ok: () => active(fix.file, fix.line) && fixState.get(fix.what)?.broken === '',
+      get got() {
+        const state = fixState.get(fix.what)
+        return !active(fix.file, fix.line) ? '' : !state ? 'fixed, not checked' : state.broken ? 'still broken' : 'works'
+      },
+      get hint() {
+        const state = fixState.get(fix.what)
+        if (!active(fix.file, fix.line)) return `${fix.file} — uncomment the ▶ line`
+        if (!state) return 'npm run mission 11 checks it in its own browser'
+        return state.broken
+      },
     })),
-    stuck: 'the line is uncommented but the error is still there? the browser keeps the old code until the page reloads',
+    stuck: 'the shop is not on port 3000? BASE_URL=http://localhost:<port> npm run mission 11',
     done: 'one bug gone, and the telemetry proves it — the error stopped coming. Fixed means: fixed in production, not "it works on my machine".',
   },
 ]
 
 // ── An answer for mission 10: npm run mission 10 <key> <answer> ─────────────────────────────────────────────────────
 const QUIZ_N = MISSIONS.findIndex((m) => m.quiz) + 1
+const FIX_N = MISSIONS.findIndex((m) => m.title === 'Fix one') + 1
+if (process.argv[2] === String(FIX_N) && !progress['Fix one']) await checkFixes()
 if (process.argv[2] === 'reset') {
   keep('.telemetry/progress.json', {})
   keep('.telemetry/answers.json', {})
@@ -622,7 +646,8 @@ if (complete[n - 1]) {
   console.log(`\n${paint(1, 'Check')}  ${goals.filter((g) => g.done).length}/${goals.length}${mission.anyOf ? '  (one is enough)' : ''}`)
   for (const g of goals) {
     const mark = g.done ? paint(32, '✓') : paint(31, '✗')
-    console.log(`  ${mark} ${g.what.padEnd(24)} ${(g.got?.() ?? '').padEnd(16)} ${g.done ? '' : paint(2, `← ${g.hint}`)}`)
+    const got = typeof g.got === 'function' ? g.got() : (g.got ?? '')
+    console.log(`  ${mark} ${g.what.padEnd(24)} ${String(got).padEnd(16)} ${g.done ? '' : paint(2, `← ${g.hint}`)}`)
   }
   console.log(`\n${paint(2, `Stuck?  ${mission.stuck}`)}`)
 }
