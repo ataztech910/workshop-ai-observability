@@ -4,6 +4,7 @@
 // first mission that is not done yet.
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createInterface } from 'node:readline/promises'
 import { loadSpans } from './cases/spans.mjs'
 import { FIRST_SPAN, TREE, handSpans } from './mission.mjs'
 
@@ -450,7 +451,7 @@ const MISSIONS = [
     ],
     steps: [
       'open the observer: Errors, Overview, Traces (click one for its waterfall), the banner on top',
-      'answer each question below, the answer in quotes: npm run mission 10 <key> "<answer>"   e.g. npm run mission 10 home "the name you found"',
+      'answer a question: npm run mission 10 <key> — e.g. npm run mission 10 home — it asks for the answer',
       'a wrong answer tells you where to look — not the answer',
     ],
     // Checked when the list is printed — after an answer given in this same run has been kept.
@@ -473,14 +474,25 @@ if (process.argv[2] === 'reset') {
 }
 if (process.argv[2] === String(QUIZ_N) && process.argv[3]) {
   const item = QUIZ.find((q) => q.key === process.argv[3].toLowerCase())
-  const answer = process.argv.slice(4).join(' ')
+  let answer = process.argv.slice(4).join(' ')
+  // Only the key given: ask for the answer here — no quotes needed for <Details> or getProductById().
+  if (item && !answer && process.stdin.isTTY) {
+    const prompt = createInterface({ input: process.stdin, output: process.stdout })
+    try {
+      answer = (await prompt.question(`${paint(1, item.key)} — ${item.q}\n> `)).trim()
+    } catch {
+      console.log() // Ctrl+D or Ctrl+C: no answer
+    } finally {
+      prompt.close()
+    }
+  }
   if (!item) console.log(paint(31, `no question "${process.argv[3]}" — the keys: ${QUIZ.map((q) => q.key).join(', ')}`))
-  else if (!answer) console.log(paint(31, `the answer is missing: npm run mission ${QUIZ_N} ${item.key} "<answer>"`))
+  else if (!answer) console.log(paint(31, `the answer is missing — type it after the key, in quotes: npm run mission ${QUIZ_N} ${item.key} "<answer>"`))
   else if (correct(item, answer)) {
     answers[item.key] = answer
     keep('.telemetry/answers.json', answers)
     console.log(paint(32, `✓ ${item.key}: ${answer} — right`))
-  } else console.log(paint(31, `✗ ${item.key}: "${answer}" — not quite. Look at: ${item.where}  (put the answer in quotes)`))
+  } else console.log(paint(31, `✗ ${item.key}: "${answer}" — not quite. Look at: ${item.where}${process.argv[4] ? '  (on the command line, put the answer in quotes)' : ''}`))
   console.log()
 }
 
