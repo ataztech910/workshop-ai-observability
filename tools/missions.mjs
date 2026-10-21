@@ -1,6 +1,8 @@
-// npm run mission <N> — your checklist for mission N of part 2: what it is about, what to do, and what is done.
-// It reads your project files and what your receiver wrote to .telemetry/spans.ndjson; it never changes your code.
-// Without a number it shows the first mission that is not done yet.
+// npm run mission <N> — your checklist for mission N: what it is about, what to do, and what is done.
+// It reads your project files, what your receiver wrote to .telemetry/spans.ndjson and, from part 3 on, the observer.
+// It never changes your code; it keeps your progress and quiz answers in .telemetry/. Without a number it shows the
+// first mission that is not done yet.
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { loadSpans } from './cases/spans.mjs'
 import { FIRST_SPAN, TREE, handSpans } from './mission.mjs'
@@ -51,8 +53,24 @@ const observerUp = typeof health?.spans === 'number'
 const services = observerUp ? ((await ask('/api/services')) ?? []) : []
 const inObserver = (name) => services.some((s) => s.name === name)
 const versionsOf = (name) => services.find((s) => s.name === name)?.versions ?? []
-// Part 4: can the observer compare the two deployments yet? (It needs checkouts in both.)
-const regression = observerUp ? (await ask('/api/regression'))?.regression : undefined
+// Done missions stay done (.telemetry/progress.json): the observer forgets on a restart, and its version comparison
+// only looks back so far — neither should send you back to a mission you finished.
+const readJson = (file) => {
+  try {
+    const value = JSON.parse(read(file) || '{}')
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+  } catch {
+    return {}
+  }
+}
+const progress = readJson('.telemetry/progress.json')
+const keep = (file, value) => {
+  mkdirSync(new URL('.telemetry/', root), { recursive: true })
+  writeFileSync(new URL(file, root), JSON.stringify(value, null, 2))
+}
+// Part 4: can the observer compare the two deployments? It needs checkouts in both. Asked only until mission 9 is done.
+const regression =
+  observerUp && !progress[9] ? (await ask(`/api/regression?service=${encodeURIComponent(app.name ?? '')}&sinceMinutes=1440`))?.regression : undefined
 // Your placeOrder spans as the observer has them (part 3): the traces, then the span with the reason in one of them.
 const placeOrderTraces = observerUp ? ((await ask('/api/traces?operation=placeOrder&exactOperation=true&limit=20')) ?? []) : []
 let reasonInObserver
@@ -95,31 +113,35 @@ const ROUTE = 'app/api/checkout/route.ts'
 // ── Mission 10: the bugs, as questions you answer from what the observer shows ────────────────────────────────────
 // npm run mission 10 <key> <answer>. Accepted answers are kept in .telemetry/answers.json.
 const QUIZ = [
-  { key: 'click', q: 'product 1, ♡ Save for later does nothing. What does the code call on null?', accept: ['push'], where: 'Errors → the uncaught error from product 1: read its message' },
-  { key: 'details', q: 'product 4, Show details breaks the page. Which component throws?', accept: ['Details'], where: 'Errors → the error after Show details: the component is named in it' },
-  { key: 'hydration', q: 'every product page: server and browser render different text. Which component?', accept: ['Viewers'], where: 'Errors → hydration mismatch: the message names the component' },
-  { key: 'reviews', q: 'product 2, reviews never load. What status does the reviews API answer?', accept: ['204'], where: "Traces → the browser's GET /api/reviews/2: http.response.status_code" },
-  { key: 'checkout', q: 'Buy ×20 fails. Up to how many items does the shop allow?', accept: ['10'], where: 'Traces → placeOrder of a refused order: order.rejected (your span from mission 5)' },
-  { key: 'search', q: 'typing in the search box: which request repeats over and over?', accept: ['/api/products'], where: 'Overview → the request with by far the most calls' },
-  { key: 'home', q: 'the home page: which function runs once per product, one after another?', accept: ['getProductById'], where: 'Traces → GET / → the waterfall: the same name many times in a row' },
+  { key: 'click', q: 'product 1, ♡ Save for later does nothing. What does the code call on null?', word: true, accept: ['5d7761697ab69a64'], where: 'Errors → the uncaught error from product 1: read its message' },
+  { key: 'details', q: 'product 4, Show details breaks the page. Which component throws?', accept: ['d0aee3867bc22550'], where: 'Errors → the error after Show details: the component is named in it' },
+  { key: 'hydration', q: 'every product page: server and browser render different text. Which component?', accept: ['9dee5e384a4ee24b'], where: 'Errors → hydration mismatch: the message names the component' },
+  { key: 'reviews', q: 'product 2, reviews never load. What status does the reviews API answer?', word: true, accept: ['64acdb610ebf7b08'], where: 'Errors → the reviews error: the status is in its message' },
+  { key: 'checkout', q: 'Buy ×20 fails. Up to how many items does the shop allow?', word: true, accept: ['e66b4cb627b57e3d'], where: 'Traces → placeOrder of a refused order: order.rejected (your span from mission 5)' },
+  { key: 'search', q: 'typing in the search box: which request repeats over and over?', accept: ['e5b22981c3a23e7e'], where: 'Overview → the request with by far the most calls' },
+  { key: 'home', q: 'the home page: which function runs once per product, one after another?', accept: ['e58eb6cb984578e6'], where: 'Traces → GET / → the waterfall: the same name many times in a row' },
   {
     key: 'deploy',
     q: 'v2 is slower: the banner names the request. Which function inside it takes the extra time?',
-    accept: ['chargePayment'],
+    accept: ['804572d688110ac7'],
     where: 'the regression banner names the request — open one of its traces from v2: the span with the most time',
   },
-  { key: 'stock', q: 'which operation fails about one time in three?', accept: ['checkInventory', '/api/inventory'], where: 'Errors or Overview → the error rate per operation' },
+  { key: 'stock', q: 'which operation fails about one time in three?', accept: ['0ca58540cd484b20', '964a3186fe078beb', '69c56a883cf5ecb8'], where: 'Overview → the error rate per operation' },
 ]
-const ANSWERS = new URL('.telemetry/answers.json', root)
-const answers = JSON.parse(read('.telemetry/answers.json') || '{}')
+const answers = readJson('.telemetry/answers.json')
+// The answers are kept as hashes, so reading this file does not give them away — find them in the observer.
+const hash = (text) => createHash('sha256').update(`porto-7:${text}`).digest('hex').slice(0, 16)
 const norm = (text) => String(text).toLowerCase().replace(/[^a-z0-9]/g, '')
-/** Long names may appear inside a longer answer ("GET /api/products"); short ones (10, 204, push) must be a word. */
-const correct = (item, answer) =>
-  item.accept.some((a) => {
-    const want = norm(a)
-    const words = String(answer).toLowerCase().split(/[^a-z0-9]+/)
-    return want.length >= 6 ? norm(answer).includes(want) : words.includes(want)
-  })
+/**
+ * A name is compared whole, ignoring case, punctuation, an HTTP method in front and a word like "component" after it
+ * ("GET /api/products", "<Viewers>", "getProductById()"). A short answer (a number, push) may be one word of a longer
+ * one ("HTTP 204", "reading 'push'").
+ */
+const correct = (item, answer) => {
+  const text = String(answer).trim().replace(/^(get|post|put|patch|delete)\s+/i, '').replace(/\s+(component|function|operation|span|request)$/i, '')
+  const tried = [norm(text), ...(item.word ? String(answer).toLowerCase().split(/[^a-z0-9]+/) : [])]
+  return tried.some((t) => t && item.accept.includes(hash(t)))
+}
 
 // ── The missions ───────────────────────────────────────────────────────────────────────────────────────────────────
 const MISSIONS = [
@@ -400,7 +422,11 @@ const MISSIONS = [
         what: 'v2 deployed after v1',
         outcome: true,
         ok: () => versionsOf(app.name).indexOf('v2') > versionsOf(app.name).indexOf('v1') && versionsOf(app.name).includes('v1'),
-        hint: 'Ctrl+C npm run dev:v1, then npm run dev:v2',
+        // The observer orders versions by when it first saw them: v2 seen first can only be fixed by starting over.
+        hint:
+          versionsOf(app.name).indexOf('v2') >= 0 && versionsOf(app.name).indexOf('v2') < versionsOf(app.name).indexOf('v1')
+            ? 'the observer saw v2 before v1 — restart it (Ctrl+C, npm run observer), then dev:v1, then dev:v2'
+            : 'Ctrl+C npm run dev:v1, then npm run dev:v2',
       },
       { what: 'customers on v2', outcome: true, ok: () => versionsOf(`${app.name}-browser`).includes('v2'), hint: 'while v2 runs: npm run users 60' },
       {
@@ -410,7 +436,7 @@ const MISSIONS = [
         hint: 'npm run load 40 on v1 and again on v2 — comparing needs checkouts in both versions',
       },
     ],
-    stuck: 'npm run users says the shop is not answering? use the port npm run dev:v1 printed: BASE_URL=http://localhost:<port> npm run users 60',
+    stuck: "the shop is not answering? use the port npm run dev:v1 printed: BASE_URL=http://localhost:<port> npm run users 60 (and the same for npm run load)",
     done: 'two deployments on record, with customers on both — like a real release. Now: what broke between them?',
   },
   {
@@ -445,8 +471,7 @@ if (process.argv[2] === '10' && process.argv[3]) {
   else if (!answer) console.log(paint(31, `the answer is missing: npm run mission 10 ${item.key} <answer>`))
   else if (correct(item, answer)) {
     answers[item.key] = answer
-    mkdirSync(new URL('.telemetry/', root), { recursive: true })
-    writeFileSync(ANSWERS, JSON.stringify(answers, null, 2))
+    keep('.telemetry/answers.json', answers)
     console.log(paint(32, `✓ ${item.key}: ${answer} — right`))
   } else console.log(paint(31, `✗ ${item.key}: "${answer}" — not quite. Look at: ${item.where}`))
   console.log()
@@ -456,7 +481,9 @@ if (process.argv[2] === '10' && process.argv[3]) {
 // A mission is complete when what it is for has arrived (the outcome goals). The "uncomment" items are the way there —
 // someone who caught up with --solution or a tag has the result without having uncommented your copy of the lines.
 const results = MISSIONS.map((m) => m.goals.map((g) => ({ ...g, done: g.ok() })))
-const complete = results.map((r) => r.filter((g) => g.outcome).every((g) => g.done) && r.some((g) => g.outcome))
+const live = results.map((r) => r.filter((g) => g.outcome).every((g) => g.done) && r.some((g) => g.outcome))
+const complete = live.map((done, i) => done || progress[i + 1] === true)
+if (live.some((done, i) => done && !progress[i + 1])) keep('.telemetry/progress.json', { ...progress, ...Object.fromEntries(live.flatMap((done, i) => (done ? [[i + 1, true]] : []))) })
 const asked = Number(process.argv[2])
 if (process.argv[2] && !(Number.isInteger(asked) && asked >= 1 && asked <= MISSIONS.length)) {
   console.log(`usage: npm run mission <1–${MISSIONS.length}>`)
