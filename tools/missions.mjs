@@ -280,6 +280,13 @@ const correct = (item, answer) => {
 const MISSIONS = [
   {
     title: 'Your own receiver',
+    recap: {
+      did: 'uncommented the lines that make a server a receiver: keep the body, decode it, save it, answer {}',
+      happened: 'your curl sent one OTLP batch; the receiver kept it in .telemetry/spans.ndjson and printed it',
+      why: 'this is the core of every telemetry backend — Grafana, Dynatrace, Datadog take the same POST on the same port',
+      see: 'tail -1 .telemetry/spans.ndjson — the batch exactly as it arrived',
+      facts: () => [`${spans.length} spans kept in .telemetry/spans.ndjson`],
+    },
     story: [
       'Before any tool, the thing every telemetry backend is: a server that takes OTLP over HTTP and keeps it.',
       'Yours listens on 4318, the standard port, and prints what arrives.',
@@ -308,6 +315,12 @@ const MISSIONS = [
   },
   {
     title: 'Your first span',
+    recap: {
+      did: 'wrote a span by hand: a name, a start and an end, a status, attributes',
+      happened: 'your receiver read it field by field — the checklist was checking exactly those fields',
+      why: 'name, time and status say THAT something failed; the attributes say WHY — that is what you will look for all day',
+      see: 'tools/span.json next to the receiver\'s line: every field is a column you just learned to read',
+    },
     story: [
       "Colony Sandy-9 cannot place an order, and Kevin's dashboard is all green.",
       'Be the app: write the span that reports the failed order — with the reason.',
@@ -322,6 +335,12 @@ const MISSIONS = [
   },
   {
     title: 'Make it a tree',
+    recap: {
+      did: 'added a second span with the same traceId and the first one\'s spanId as its parent',
+      happened: 'two separate spans became one trace with two levels — the receiver indented the child',
+      why: 'a trace is how you see where inside a request the time or the error is; across services traceparent carries it',
+      see: 'your receiver\'s output: └ chargePayment under POST /checkout',
+    },
     story: ['The order failed inside the payment. Show it: the payment is a child of the checkout, in the same trace.'],
     steps: [
       'tools/span.json — add a second span to "spans" (mind the comma between the two)',
@@ -337,6 +356,13 @@ const MISSIONS = [
   },
   {
     title: 'The APM agent, by hand',
+    recap: {
+      did: 'installed next-observe and turned on its two halves (server, browser) and the browser\'s route',
+      happened: 'the shop now writes the spans you typed by hand — for every request, page and error, by itself',
+      why: 'nobody instruments by hand at scale; the agent does it, and two bugs from part 1 became data',
+      see: 'your receiver\'s terminal while you click the shop; the 400 and the uncaught error are in it',
+      facts: () => [`${fromShop.length} server spans, ${fromBrowser.length} browser spans arrived`],
+    },
     story: [
       'Typing JSON does not scale. The APM agent is a library inside the app that writes those spans for you —',
       'for every request, on the server and in the browser — and sends them to your receiver.',
@@ -389,6 +415,13 @@ const MISSIONS = [
   },
   {
     title: 'A span of your own',
+    recap: {
+      did: 'added placeOrder with order.quantity and order.rejected in the checkout route',
+      happened: 'a refused order now carries its reason inside the request\'s trace',
+      why: 'automatic spans know HTTP, not your business — only your code knows why an order was refused',
+      see: 'your receiver: placeOrder with order.rejected under POST /api/checkout',
+      facts: () => placeOrders.filter((s) => s.attributes['order.rejected']).slice(0, 1).map((s) => `placeOrder  order.rejected=${s.attributes['order.rejected']}`),
+    },
     story: [
       'The 400 says that the order failed. Sandy-9 asks why — and the automatic spans cannot know: they speak HTTP,',
       'not orders. Your code knows. Put the reason where the telemetry is.',
@@ -416,6 +449,13 @@ const MISSIONS = [
   },
   {
     title: "'use observe'",
+    recap: {
+      did: 'put one directive at the top of four files in lib/',
+      happened: 'every function they export became a span, with its file in code.filepath',
+      why: 'when something is slow, the trace points at the function and the file — no tracer, no try/finally',
+      see: 'your receiver: getProductById, chargePayment, checkInventory under the requests',
+      facts: () => [`${new Set(functionSpans.map((s) => s.name)).size} functions as spans: ${[...new Set(functionSpans.map((s) => s.name))].join(', ')}`],
+    },
     story: [
       'A span of your own took a tracer, a try and a finally. For plain functions there is a shorter way:',
       'one line at the top of a file, and every function it exports becomes a span — with the file it lives in.',
@@ -449,6 +489,12 @@ const MISSIONS = [
   },
   {
     title: 'One case by hand',
+    recap: {
+      did: 'narrowed all spans down to rejected checkouts, step by step',
+      happened: 'the script grouped them by trace and read your placeOrder\'s reason',
+      why: 'filter, group by trace, read attributes — that is what an observability backend does all day',
+      see: 'npm run case checkout-400',
+    },
     story: [
       'You have the raw spans. Answer the question a script can answer: which orders were refused — and why?',
       'This is what an observability backend does all day: filter, group by trace, read the attributes.',
@@ -481,6 +527,13 @@ const MISSIONS = [
   },
   {
     title: 'Good evening, Kevin',
+    recap: {
+      did: 'stopped your receiver and started the observer on the same port',
+      happened: 'the shop kept sending the same OTLP — now the observer keeps it, shows it and watches it',
+      why: 'the app did not change a line: where telemetry goes is a choice you can change at any time',
+      see: 'http://127.0.0.1:4318 → Traces → placeOrder → order.rejected',
+      facts: () => [`the observer holds ${health?.spans ?? 0} spans`],
+    },
     story: [
       'A script answers one question, once — and at 3 am nobody runs it. What you need is a program that takes the',
       'telemetry all the time, keeps it, shows it and watches it: an observer. Ours is next-observer. It is not part',
@@ -531,6 +584,13 @@ const MISSIONS = [
   },
   {
     title: 'Two deployments',
+    recap: {
+      did: 'ran v1, then v2, each with customers and server traffic',
+      happened: 'every span carries service.version, so the observer keeps the two deployments apart',
+      why: '"which deploy broke it?" is the first question after every release — now it has an answer',
+      see: 'observer → Overview, the service picker shows v1 and v2',
+      facts: () => [`versions on record: ${versionsOf(app.name).join(' → ')}`],
+    },
     story: [
       'Real shops change. Today Porto-7 ships two builds of the shop, v1 and then v2, with customers on both — and',
       'every span carries its version (service.version), so the observer can tell one deployment from the next.',
@@ -571,6 +631,12 @@ const MISSIONS = [
   },
   {
     title: 'Find the bugs',
+    recap: {
+      did: 'named nine bugs from the telemetry alone — no DevTools, no code',
+      happened: 'each answer came from a different place: Errors, Overview, a waterfall, the error rate',
+      why: 'most of them were invisible by hand in part 1; three were never visible to a customer at all',
+      see: 'the observer\'s Errors (1h) and a slow checkout\'s waterfall',
+    },
     quiz: true,
     story: [
       "v2 is out. Sandy-9 complains, Kevin's dashboard is green, and Lord Manager wants names. Nine things are wrong:",
@@ -593,6 +659,12 @@ const MISSIONS = [
   },
   {
     title: 'Fix one',
+    recap: {
+      did: 'uncommented one fix and let the mission try it in a fresh browser',
+      happened: 'the observer had the error before; during the check it got none',
+      why: 'fixed means the telemetry says so — not "it works on my machine"',
+      see: 'observer → Errors (1h): the entry\'s last seen stays before your fix',
+    },
     anyOf: true,
     story: [
       'Names are not enough: Lord Manager wants one bug gone today. The fix for three of them is already in the code,',
@@ -625,6 +697,13 @@ const MISSIONS = [
   },
   {
     title: 'The night patrol',
+    recap: {
+      did: 'turned on three checks in observe.checks.ts; the observer read the file while it ran',
+      happened: 'every 10 s the observer called the shop itself, like a customer — nobody else was there',
+      why: 'v2 is slow even when nobody buys; no customer tells you at 3 am — the patrol does',
+      see: 'observer → Checks: the red row and its history; a failed run links to its trace',
+      facts: () => patrol.map((c) => `${c.last?.ok ? '✓' : '✗'} ${c.name.padEnd(32)} ${c.last ? (c.last.ok ? `${c.last.status ?? ''} in ${Math.round(c.last.durationMs)} ms` : `${c.last.reason ?? 'failed'}${c.failures > 1 ? ` — failed ${c.failures} times in a row` : ''}`) : 'not run yet'}`),
+    },
     story: [
       'At 3 am nobody buys, so nobody complains — and v2 is slow. The observer can be the customer: it asks the shop on a',
       'timer what must stay true, and a check that fails twice in a row becomes an anomaly. Nobody needs to click.',
@@ -731,6 +810,16 @@ mission.steps.forEach((step, i) => console.log(`  ${i + 1}. ${step}`))
 console.log(`  ${mission.steps.length + 1}. npm run mission ${n} again`)
 if (complete[n - 1]) {
   console.log(`\n${paint(33, `★ Mission ${n} complete — ${mission.done}`)}`)
+  const r = mission.recap
+  if (r) {
+    const row = (label, text) => console.log(`  ${paint(1, label.padEnd(14))} ${text}`)
+    console.log()
+    row('What you did', r.did)
+    row('What happened', r.happened)
+    for (const fact of r.facts?.() ?? []) console.log(`  ${''.padEnd(14)} ${paint(2, fact)}`)
+    row('Why it matters', r.why)
+    row('See it', r.see)
+  }
   if (n < MISSIONS.length) console.log(paint(2, `  next: npm run mission ${n + 1}`))
 } else {
   console.log(`\n${paint(1, 'Check')}  ${goals.filter((g) => g.done).length}/${goals.length}${mission.anyOf ? '  (one is enough)' : ''}`)
