@@ -451,6 +451,7 @@ const MISSIONS = [
     ],
     steps: [
       'open the observer: Errors, Overview, Traces (click one for its waterfall), and the card in the bottom right corner',
+      'the observer shows the last 15 minutes by default — pick 1h at the top of Errors and Overview, or nothing older shows',
       'answer a question: npm run mission 10 <key> — e.g. npm run mission 10 home — it asks for the answer',
       'a wrong answer tells you where to look — not the answer',
     ],
@@ -459,7 +460,7 @@ const MISSIONS = [
       const right = () => correct(item, answers[item.key] ?? '')
       return { what: item.key, outcome: true, ok: right, got: () => (right() ? String(answers[item.key]) : ''), hint: item.q }
     }),
-    stuck: 'nothing in Errors? npm run users 60 again — the customers make the browser bugs happen',
+    stuck: 'too little in Errors? pick 1h at the top; still nothing — npm run users 60 again, the customers make the browser bugs happen',
     done: 'nine bugs named from the telemetry alone. How many did you notice by hand in part 1?',
   },
 ]
