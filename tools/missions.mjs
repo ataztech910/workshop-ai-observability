@@ -124,11 +124,16 @@ const QUIZ = [
   { key: 'search', q: 'typing in the search box: which request repeats over and over?', accept: ['e5b22981c3a23e7e'], where: 'Overview → the request with by far the most calls' },
   { key: 'home', q: 'the home page: which function runs once per product, one after another?', accept: ['e58eb6cb984578e6'], where: 'Traces → GET / → the waterfall: the same name many times in a row' },
   {
-    key: 'deploy',
-    q: 'v2 made one request much slower. Which function inside it takes the extra time?',
+    key: 'slow',
+    q: 'v2 made one request much slower. Which request?',
+    accept: ['c96407d9c5c0b243'],
+    where: 'Overview (1h) → Slowest: the request at the top (the card "v2 looks like a regression", bottom right, names it too)',
+  },
+  {
+    key: 'cause',
+    q: 'inside that slow request: which function takes the extra time?',
     accept: ['804572d688110ac7'],
-    where:
-      'Overview (1h) → Slowest: the request at the top → Traces: type its name, Min ms 1000 → open one → the waterfall: the longest bar inside it (the card "v2 looks like a regression", bottom right, names the request too)',
+    where: 'Traces → type the slow request in "Operation contains…", Min ms 1000 → open one → the waterfall: the longest bar inside it',
   },
   { key: 'stock', q: 'which operation fails about one time in three?', accept: ['0ca58540cd484b20', '964a3186fe078beb', '69c56a883cf5ecb8'], where: 'Overview → the busiest requests and their error rate, or Errors → the server-side error with the most hits' },
 ]
@@ -448,7 +453,7 @@ const MISSIONS = [
     story: [
       "v2 is out. Sandy-9 complains, Kevin's dashboard is green, and Lord Manager wants names. Nine things are wrong:",
       'six you met as a customer in part 1, three that only the telemetry shows. Find each one in the observer —',
-      'no DevTools, no code — and name it.',
+      'no DevTools, no code — and name it. The v2 slowdown takes two answers: the request, then the function inside it.',
     ],
     steps: [
       'open the observer: Errors, Overview, Traces (click one for its waterfall), and the card in the bottom right corner',
