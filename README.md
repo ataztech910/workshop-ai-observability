@@ -59,7 +59,7 @@ The other case scripts (`npm run case` lists them) find the remaining bugs in th
 Keep the observer running on its own, so switching versions keeps the telemetry history — like a real deploy.
 
 ```bash
-# terminal 1 — the observer (add OBSERVE_AI=real for a real model; default is a mock model)
+# terminal 1 — the observer (npm run observer:real for a real model; default is a mock model)
 npm run observer
 
 # terminal 2 — the shop as version v1
