@@ -780,7 +780,15 @@ const MISSIONS = [
       "The patrol raised the alarm; now someone has to find out why. The observer's AI agents are an orchestrator and three",
       'specialist droids. Build your own latency droid: what it may use, and how it works — then ask it.',
     ],
+    // The droid needs both deployments on record; a restarted observer has forgotten them — then that comes first.
     steps: [
+      ...(v1At >= 0 && v2At > v1At
+        ? []
+        : [
+            "the observer needs the shop's telemetry first (it forgets on a restart): stop npm run dev, start npm run dev:v1",
+            'in another terminal: npm run load 30 — when it finishes, Ctrl+C npm run dev:v1',
+            'npm run dev:v2, then npm run load 30 again',
+          ]),
       'observe.agents.ts — uncomment the three ▶ lines; the observer reloads the file (its terminal lists your latency_agent)',
       'observer → Chat: ask "Checkout is slow. What is causing it and which deployment introduced it?"',
       'watch the steps — which droid calls which tool — and the cards under the answer',
