@@ -10,44 +10,64 @@
 # from the README.
 set -euo pipefail
 
-REPO="https://github.com/ataztech910/workshop-ai-observability.git"
-DIR="workshop-ai-observability"
-CHECK_ONLY=false
-[ "${1:-}" = "--check" ] && CHECK_ONLY=true
+# All of it is one function, read whole before it runs: `git pull` below may replace this very file, and bash reads a
+# plain script piece by piece while it runs it.
+main() {
 
-say() { printf '\n\033[1;33m▸ %s\033[0m\n' "$1"; }
-fail() { printf '\n\033[1;31m✗ %s\033[0m\n' "$1" >&2; exit 1; }
+  REPO="https://github.com/ataztech910/workshop-ai-observability.git"
+  DIR="workshop-ai-observability"
+  CHECK_ONLY=false
+  [ "${1:-}" = "--check" ] && CHECK_ONLY=true
 
-say "Checking git, Node.js and npm"
-command -v git >/dev/null || fail "git is missing — install it from https://git-scm.com"
-command -v node >/dev/null || fail "Node.js is missing — install the current LTS from https://nodejs.org (22.18 or newer)"
-command -v npm >/dev/null || fail "npm is missing — it comes with Node.js: https://nodejs.org"
-node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(a>22||(a===22&&b>=18)?0:1)' \
-  || fail "Node.js $(node -v) is too old — 22.18 or newer is needed: https://nodejs.org"
-echo "git $(git --version | cut -d' ' -f3), Node.js $(node -v), npm $(npm -v)"
+  say() { printf '\n\033[1;33m▸ %s\033[0m\n' "$1"; }
+  fail() { printf '\n\033[1;31m✗ %s\033[0m\n' "$1" >&2; exit 1; }
 
-# In the shop already (./start.sh), or somewhere else (curl … | bash): then clone it, or use the clone made earlier.
-if [ -f package.json ] && grep -q '"name": "workshop-ai-observability"' package.json; then
-  :
-elif [ -d "$DIR/.git" ]; then
-  say "Using the clone in ./$DIR"
-  cd "$DIR"
-else
-  say "Cloning the shop into ./$DIR"
-  git clone "$REPO" "$DIR"
-  cd "$DIR"
-fi
+  # A clone made days ago misses what changed since. Update it — but never over your own work, and never off master.
+  update() {
+    say "Updating the shop (git pull)"
+    if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+      echo "you have changes of your own — not updating. To get the latest anyway: git stash && git pull"
+    elif [ "$(git rev-parse --abbrev-ref HEAD)" != "master" ]; then
+      echo "you are on $(git rev-parse --abbrev-ref HEAD), not master — not updating"
+    else
+      git pull --ff-only || echo "could not update (offline?) — going on with what you have"
+    fi
+  }
 
-say "Installing (npm install)"
-npm install --no-audit --no-fund
+  say "Checking git, Node.js and npm"
+  command -v git >/dev/null || fail "git is missing — install it from https://git-scm.com"
+  command -v node >/dev/null || fail "Node.js is missing — install the current LTS from https://nodejs.org (22.18 or newer)"
+  command -v npm >/dev/null || fail "npm is missing — it comes with Node.js: https://nodejs.org"
+  node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(a>22||(a===22&&b>=18)?0:1)' \
+    || fail "Node.js $(node -v) is too old — 22.18 or newer is needed: https://nodejs.org"
+  echo "git $(git --version | cut -d' ' -f3), Node.js $(node -v), npm $(npm -v)"
 
-say "Checking the machine (npm run doctor)"
-npm run doctor || fail "fix what doctor says above, then run ./start.sh again"
+  # In the shop already (./start.sh), or somewhere else (curl … | bash): then clone it, or use the clone made earlier.
+  if [ -f package.json ] && grep -q '"name": "workshop-ai-observability"' package.json; then
+    update
+  elif [ -d "$DIR/.git" ]; then
+    say "Using the clone in ./$DIR"
+    cd "$DIR"
+    update
+  else
+    say "Cloning the shop into ./$DIR"
+    git clone "$REPO" "$DIR"
+    cd "$DIR"
+  fi
 
-if $CHECK_ONLY; then
-  say "All set. On the day: cd $(pwd) && ./start.sh"
-  exit 0
-fi
+  say "Installing (npm install)"
+  npm install --no-audit --no-fund
 
-say "Starting the shop — open the address Next.js prints below (usually http://localhost:3000). Ctrl+C stops it."
-exec npm run dev
+  say "Checking the machine (npm run doctor)"
+  npm run doctor || fail "fix what doctor says above, then run ./start.sh again"
+
+  if $CHECK_ONLY; then
+    say "All set. On the day: cd $(pwd) && ./start.sh"
+    exit 0
+  fi
+
+  say "Starting the shop — open the address Next.js prints below (usually http://localhost:3000). Ctrl+C stops it."
+  exec npm run dev
+}
+
+main "$@"
