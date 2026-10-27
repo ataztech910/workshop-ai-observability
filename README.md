@@ -17,7 +17,7 @@ One command — it clones the shop (when you have no clone yet), installs it, ch
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ataztech910/workshop-ai-observability/master/start.sh | bash
-# in a clone:  ./start.sh          · the day before, without starting the shop:  ./start.sh --check
+# in a clone:  ./start.sh  (it pulls the latest first)  · the day before, without starting the shop:  ./start.sh --check
 ```
 
 The same by hand (and on Windows without Git Bash):

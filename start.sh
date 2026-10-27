@@ -18,6 +18,18 @@ CHECK_ONLY=false
 say() { printf '\n\033[1;33m▸ %s\033[0m\n' "$1"; }
 fail() { printf '\n\033[1;31m✗ %s\033[0m\n' "$1" >&2; exit 1; }
 
+# A clone made days ago misses what changed since. Update it — but never over your own work, and never off master.
+update() {
+  say "Updating the shop (git pull)"
+  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "you have changes of your own — not updating. To get the latest anyway: git stash && git pull"
+  elif [ "$(git rev-parse --abbrev-ref HEAD)" != "master" ]; then
+    echo "you are on $(git rev-parse --abbrev-ref HEAD), not master — not updating"
+  else
+    git pull --ff-only || echo "could not update (offline?) — going on with what you have"
+  fi
+}
+
 say "Checking git, Node.js and npm"
 command -v git >/dev/null || fail "git is missing — install it from https://git-scm.com"
 command -v node >/dev/null || fail "Node.js is missing — install the current LTS from https://nodejs.org (22.18 or newer)"
@@ -28,10 +40,11 @@ echo "git $(git --version | cut -d' ' -f3), Node.js $(node -v), npm $(npm -v)"
 
 # In the shop already (./start.sh), or somewhere else (curl … | bash): then clone it, or use the clone made earlier.
 if [ -f package.json ] && grep -q '"name": "workshop-ai-observability"' package.json; then
-  :
+  update
 elif [ -d "$DIR/.git" ]; then
   say "Using the clone in ./$DIR"
   cd "$DIR"
+  update
 else
   say "Cloning the shop into ./$DIR"
   git clone "$REPO" "$DIR"
