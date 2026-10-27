@@ -783,7 +783,7 @@ const MISSIONS = [
       'observer → Chat: ask "Checkout is slow. What is causing it and which deployment introduced it?"',
       'watch the steps — which droid calls which tool — and the cards under the answer',
       'bonus: comment the tools ▶ line out again, save, ask again — no trace tools, no function',
-      'bonus: a real model instead of the mock one — OBSERVE_AI=real npm run observer (it needs a model; ask the instructor)',
+      'bonus: a real model instead of the mock one — npm run observer:real (it needs a model; ask the instructor)',
     ],
     goals: [
       { ...uncomment('observe.agents.ts', 'tools'), ok: () => active('observe.agents.ts', /tools\.push\('search_traces', 'get_trace'\)/) },
