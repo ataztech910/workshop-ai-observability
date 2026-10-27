@@ -81,6 +81,8 @@ try {
 } catch {}
 const myTurns = turns.filter((t) => !t.proactive && t.startedAtMs > agentsSavedMs && t.events.some((e) => e.type === 'step' && e.agent === 'latency_agent'))
 const lastTurn = myTurns.at(-1)
+// A restarted observer starts empty: then no droid can find anything, whatever its tools — say that first.
+const EMPTY_OBSERVER = 'the observer has no telemetry of the shop (it starts empty after a restart) — npm run dev:v1 + npm run load 30, then npm run dev:v2 + npm run load 30, then ask again'
 const cardOf = (kind) => lastTurn?.events.find((e) => e.type === 'card' && e.card.kind === kind)?.card
 // Part 4: the observer's patrol (observe.checks.ts) — mission 12.
 const patrol = observerUp ? ((await ask('/api/checks'))?.checks ?? []) : []
@@ -778,7 +780,15 @@ const MISSIONS = [
       "The patrol raised the alarm; now someone has to find out why. The observer's AI agents are an orchestrator and three",
       'specialist droids. Build your own latency droid: what it may use, and how it works — then ask it.',
     ],
+    // The droid needs both deployments on record; a restarted observer has forgotten them — then that comes first.
     steps: [
+      ...(v1At >= 0 && v2At > v1At
+        ? []
+        : [
+            'why first: the observer has forgotten the shop (it starts empty after a restart), and your droid names the slow deployment by comparing two — it needs traffic from both: v1, the build before, and v2, the one after',
+            'stop npm run dev, start the build before: npm run dev:v1 — and in another terminal: npm run load 30',
+            'when the load finishes, "deploy" the next build: Ctrl+C npm run dev:v1, then npm run dev:v2 and npm run load 30 again',
+          ]),
       'observe.agents.ts — uncomment the three ▶ lines; the observer reloads the file (its terminal lists your latency_agent)',
       'observer → Chat: ask "Checkout is slow. What is causing it and which deployment introduced it?"',
       'watch the steps — which droid calls which tool — and the cards under the answer',
@@ -808,7 +818,10 @@ const MISSIONS = [
         outcome: true,
         ok: () => Boolean(cardOf('regression')),
         got: () => (cardOf('regression') ? `${cardOf('regression').operation}` : ''),
-        hint: `no regression card — the observer knows only ${versionsOf(app.name).join(', ') || 'no version'} (it forgets on a restart). Redo mission 9: npm run dev:v1 + npm run load 30, then npm run dev:v2 + npm run load 30 — then ask again`,
+        hint:
+          versionsOf(app.name).length === 0
+            ? EMPTY_OBSERVER
+            : `no regression card — the observer knows only ${versionsOf(app.name).join(', ')} (it forgets on a restart). Redo mission 9: npm run dev:v1 + npm run load 30, then npm run dev:v2 + npm run load 30 — then ask again`,
       },
       // A bonus, not required: the mock model calls tools without arguments, so get_trace has no trace to open — the
       // function behind the slowdown takes a real model that picks a trace id from what search_traces returned.
@@ -817,7 +830,9 @@ const MISSIONS = [
         ok: () => Boolean(cardOf('hotspot')),
         got: () => (cardOf('hotspot') ? cardOf('hotspot').operation : ''),
         hint:
-          chatInfo?.mode === 'real'
+          versionsOf(app.name).length === 0
+            ? EMPTY_OBSERVER
+            : chatInfo?.mode === 'real'
             ? 'no hotspot card — your droid needs the trace tools (the tools ▶ line) and step 3; save, then ask again'
             : 'the mock model cannot open a trace (it calls tools without arguments) — with a real model your droid names the function',
       },
