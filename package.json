@@ -8,7 +8,7 @@
     "case": "node tools/cases/index.mjs",
     "mission": "node tools/missions.mjs",
     "dev": "next dev",
-    "observer": "npx --yes --prefer-offline next-observer@^0.3.26 collector",
+    "observer": "npx --yes --prefer-offline next-observer@^0.3.35 collector",
     "observer:real": "node scripts/observer.mjs real",
     "dev:v1": "node scripts/dev.mjs v1",
     "dev:v2": "node scripts/dev.mjs v2",

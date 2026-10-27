@@ -8,7 +8,7 @@ import { join } from 'node:path'
 
 // At least the version with scheduled checks (block 5). A range with a patch number also keeps an older copy in
 // npm's cache from being picked.
-const OBSERVER = 'next-observer@^0.3.26'
+const OBSERVER = 'next-observer@^0.3.35'
 // The standard OTLP port: your receiver listens there in blocks 2–4, the observer takes it over in block 5.
 const OBSERVER_PORT = 4318
 // The catch-up points. block-6-incident-f is the instructor's demo, not needed on your machine.
