@@ -823,22 +823,19 @@ const MISSIONS = [
             ? EMPTY_OBSERVER
             : `no regression card — the observer knows only ${versionsOf(app.name).join(', ')} (it forgets on a restart). Redo mission 9: npm run dev:v1 + npm run load 30, then npm run dev:v2 + npm run load 30 — then ask again`,
       },
-      // A bonus, not required: the mock model calls tools without arguments, so get_trace has no trace to open — the
-      // function behind the slowdown takes a real model that picks a trace id from what search_traces returned.
       {
-        what: 'bonus: the function',
+        what: 'the function found',
+        outcome: true,
         ok: () => Boolean(cardOf('hotspot')),
-        got: () => (cardOf('hotspot') ? cardOf('hotspot').operation : ''),
+        got: () => (cardOf('hotspot') ? `${cardOf('hotspot').operation}` : ''),
         hint:
           versionsOf(app.name).length === 0
             ? EMPTY_OBSERVER
-            : chatInfo?.mode === 'real'
-            ? 'no hotspot card — your droid needs the trace tools (the tools ▶ line) and step 3; save, then ask again'
-            : 'the mock model cannot open a trace (it calls tools without arguments) — with a real model your droid names the function',
+            : 'no hotspot card — your droid needs the trace tools (the tools ▶ line) and step 3; save, then ask again',
       },
     ],
     stuck: 'no chat in the observer? it runs with the mock model by default — the terminal of npm run observer says why if it is off',
-    done: 'your droid found the slow deployment — and every claim has a card built from a tool result, not from the model.',
+    done: 'your droid found the slow deployment and the function behind it — every claim has a card built from a tool result, not from the model.',
   },
 ]
 
