@@ -808,7 +808,7 @@ const MISSIONS = [
         outcome: true,
         ok: () => Boolean(cardOf('regression')),
         got: () => (cardOf('regression') ? `${cardOf('regression').operation}` : ''),
-        hint: 'no regression card — mission 9 must have both v1 and v2 on record; ask again',
+        hint: `no regression card — the observer knows only ${versionsOf(app.name).join(', ') || 'no version'} (it forgets on a restart). Redo mission 9: npm run dev:v1 + npm run load 30, then npm run dev:v2 + npm run load 30 — then ask again`,
       },
       // A bonus, not required: the mock model calls tools without arguments, so get_trace has no trace to open — the
       // function behind the slowdown takes a real model that picks a trace id from what search_traces returned.
@@ -891,7 +891,9 @@ if (complete[n - 1]) {
     console.log()
     row('What you did', r.did)
     row('What happened', r.happened)
-    for (const fact of r.facts?.() ?? []) console.log(`  ${''.padEnd(14)} ${paint(2, fact)}`)
+    // The facts are live numbers: a mission done earlier (kept in progress.json) may have none left to show.
+    if (live[n - 1]) for (const fact of r.facts?.() ?? []) console.log(`  ${''.padEnd(14)} ${paint(2, fact)}`)
+    else if (r.facts) console.log(`  ${''.padEnd(14)} ${paint(2, 'done earlier — the numbers are gone (the observer forgets on a restart); do the steps again to see them live')}`)
     row('Why it matters', r.why)
     row('See it', r.see)
   }
