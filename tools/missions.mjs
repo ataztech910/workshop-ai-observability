@@ -785,9 +785,9 @@ const MISSIONS = [
       ...(v1At >= 0 && v2At > v1At
         ? []
         : [
-            "the observer needs the shop's telemetry first (it forgets on a restart): stop npm run dev, start npm run dev:v1",
-            'in another terminal: npm run load 30 — when it finishes, Ctrl+C npm run dev:v1',
-            'npm run dev:v2, then npm run load 30 again',
+            'why first: the observer has forgotten the shop (it starts empty after a restart), and your droid names the slow deployment by comparing two — it needs traffic from both: v1, the build before, and v2, the one after',
+            'stop npm run dev, start the build before: npm run dev:v1 — and in another terminal: npm run load 30',
+            'when the load finishes, "deploy" the next build: Ctrl+C npm run dev:v1, then npm run dev:v2 and npm run load 30 again',
           ]),
       'observe.agents.ts — uncomment the three ▶ lines; the observer reloads the file (its terminal lists your latency_agent)',
       'observer → Chat: ask "Checkout is slow. What is causing it and which deployment introduced it?"',
