@@ -10,7 +10,7 @@ export function Search() {
   const [found, setFound] = useState<Product[]>([])
   const filter = { q: query.trim() }
   let changesWhen: unknown = filter
-  // Mission 11 · the fix: uncomment the ▶ line (Cmd+/).
+  // Mission 12 · the fix: uncomment the ▶ line (Cmd+/).
   // changesWhen = filter.q // ▶
   //   Why: React runs the effect again whenever its dependency changes. `filter` is a new object on every render, so:
   //   the effect fetches, the result renders, a new object, the effect fetches again — the request loop. Depend on

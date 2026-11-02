@@ -1,4 +1,4 @@
-// Mission 13 · Build your own droid: the observer's AI agents are an orchestrator and three specialists (latency,
+// Mission 14 · Build your own droid: the observer's AI agents are an orchestrator and three specialists (latency,
 // errors, traffic). This file describes a specialist of your own; one with a built-in's name replaces it. The observer
 // reads this file while it runs. Uncomment the ▶ lines (Cmd+/). Plain data — nothing to import.
 type Specialist = { name: string; description: string; instruction: string; tools: string[] }
@@ -15,7 +15,7 @@ const steps = [
   '1. Call get_operation_stats to see which operations exist and which are slow — use their exact names from then on.',
   '2. Call compare_versions. A p95 ratio of 2 or more between versions is a regression: name the operation, both versions and the ratio.',
   // '3. Open one slow trace of that operation (search_traces with its exact name, then get_trace) and name the span with the highest selfMs and its code file.', // ▶
-  //   Why: the request is not the answer — the function inside it is (remember mission 10). selfMs is the time a span
+  //   Why: the request is not the answer — the function inside it is (remember mission 11). selfMs is the time a span
   //   spends itself, not in its children: the bottom step of the long bars.
 ]
 

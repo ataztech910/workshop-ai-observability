@@ -8,7 +8,7 @@ export function Wishlist({ productId }: { productId: string }) {
 
   function save() {
     let list = JSON.parse(localStorage.getItem('wishlist') as string) as string[]
-    // Mission 11 · the fix: uncomment the ▶ line (Cmd+/).
+    // Mission 12 · the fix: uncomment the ▶ line (Cmd+/).
     // list ??= [] // ▶
     //   Why: on the first visit nothing is saved yet — getItem returns null, JSON.parse(null) is null, and null.push
     //   throws: "Cannot read properties of null (reading 'push')" in Errors. Start from an empty list instead.

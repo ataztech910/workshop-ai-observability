@@ -38,7 +38,7 @@ the observer shows all of it in seconds; then AI agents work on it.
 | Part | You do | Fell behind? |
 |---|---|---|
 | 1 — Theory | use the shop and count the bugs you notice | — |
-| 2 — OpenTelemetry by hand | seven missions, each one starts with `npm run mission N` (N = 1…7): it says what to do and ticks off what is done — your own OTLP receiver, a span by hand, a tree, the APM agent (`npm install next-observe` + three files), a span of your own, `'use observe'`, one case by script | `npm run receiver -- --solution` · `git stash -u && git checkout -B workshop block-3-instrumentation && npm install` · `npm run case checkout-400 -- --solution` |
+| 2 — OpenTelemetry by hand | eight missions, each one starts with `npm run mission N` (N = 1…8): it says what to do and ticks off what is done — your own OTLP receiver, a span by hand, a tree, the APM agent (`npm install next-observe` + three files), a span of your own, `'use observe'`, one case by script, your first AI agent with Google ADK (`npm run agent`) | `npm run receiver -- --solution` · `git stash -u && git checkout -B workshop block-3-instrumentation && npm install` · `npm run case checkout-400 -- --solution` |
 | 3 — The observer | stop the receiver, `npm run observer` — same port, the app does not change | — |
 | 4 — What arrives | two "deployments" with customers (below); find the six bugs in the observer; fix one; scheduled checks in `observe.checks.ts` | `git stash -u && git checkout -B workshop block-5-observer && npm install` |
 | 5 — AI | your own AI agent in `observe.agents.ts` | same as part 4 |
