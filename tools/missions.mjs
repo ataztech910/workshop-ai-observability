@@ -71,7 +71,7 @@ const keep = (file, value) => {
   mkdirSync(new URL('.telemetry/', root), { recursive: true })
   writeFileSync(new URL(file, root), JSON.stringify(value, null, 2))
 }
-// Part 5: your droid (observe.agents.ts) — mission 13. A conversation counts when it started after you last saved the
+// Part 5: your droid (observe.agents.ts) — mission 14. A conversation counts when it started after you last saved the
 // file: the observer reloads it, so from then on latency_agent is yours, not the built-in one.
 const chatInfo = observerUp ? await ask('/api/chat') : undefined
 const turns = observerUp ? ((await ask('/api/chat/history'))?.turns ?? []) : []
@@ -84,10 +84,10 @@ const lastTurn = myTurns.at(-1)
 // A restarted observer starts empty: then no droid can find anything, whatever its tools — say that first.
 const EMPTY_OBSERVER = 'the observer has no telemetry of the shop (it starts empty after a restart) — npm run dev:v1 + npm run load 30, then npm run dev:v2 + npm run load 30, then ask again'
 const cardOf = (kind) => lastTurn?.events.find((e) => e.type === 'card' && e.card.kind === kind)?.card
-// Part 4: the observer's patrol (observe.checks.ts) — mission 12.
+// Part 4: the observer's patrol (observe.checks.ts) — mission 13.
 const patrol = observerUp ? ((await ask('/api/checks'))?.checks ?? []) : []
 const check = (name) => patrol.find((c) => c.name === name)
-// Part 4: can the observer compare the two deployments? It needs checkouts in both. Asked only until mission 9 is done.
+// Part 4: can the observer compare the two deployments? It needs checkouts in both. Asked only until mission 10 is done.
 const regression =
   observerUp && !progress['Two deployments'] ? (await ask(`/api/regression?service=${encodeURIComponent(app.name ?? '')}&sinceMinutes=1440`))?.regression : undefined
 // Your placeOrder spans as the observer has them (part 3): the traces, then the span with the reason in one of them.
@@ -129,7 +129,12 @@ function fromReceiver(mission, pick, missing) {
 
 const ROUTE = 'app/api/checkout/route.ts'
 
-// ── Mission 11: a fix counts when its line is uncommented AND it works: the mission opens the shop in its own browser
+// ── Mission 8: your first agent — what its last run did (tools/agent.mjs writes .telemetry/agent-run.json) ──────────
+const agentRun = readJson('.telemetry/agent-run.json')
+const reasonsOnRecord = [...new Set(placeOrders.map((s) => s.attributes['order.rejected']).filter(Boolean).map(String))]
+const AGENT = 'tools/agent.mjs'
+
+// ── Mission 12: a fix counts when its line is uncommented AND it works: the mission opens the shop in its own browser
 // (fresh, with the new code), does exactly that thing, and then asks the observer whether the error came during it.
 const SHOP = process.env.BASE_URL ?? 'http://localhost:3000'
 const FIXES = [
@@ -176,7 +181,7 @@ const FIXES = [
     },
   },
 ]
-/** Filled by checkFixes() — only on `npm run mission 11` (it opens Chrome), read by mission 11's checklist. */
+/** Filled by checkFixes() — only on `npm run mission 12` (it opens Chrome), read by mission 12's checklist. */
 const fixState = new Map()
 let shown = '' // what the shop showed during a check — printed with the observer's numbers
 const clock = (ms) => new Date(ms).toLocaleTimeString('en-GB')
@@ -247,8 +252,8 @@ async function checkFixes() {
   }
 }
 
-// ── Mission 10: the bugs, as questions you answer from what the observer shows ────────────────────────────────────
-// npm run mission 10 <key> <answer>. Accepted answers are kept in .telemetry/answers.json.
+// ── Mission 11: the bugs, as questions you answer from what the observer shows ────────────────────────────────────
+// npm run mission 11 <key> <answer>. Accepted answers are kept in .telemetry/answers.json.
 const QUIZ = [
   { key: 'click', q: 'product 1, ♡ Save for later does nothing. What does the code call on null?', word: true, accept: ['5d7761697ab69a64'], where: 'Errors → the uncaught error from product 1: read its message' },
   { key: 'details', q: 'product 4, Show details breaks the page. Which component throws?', accept: ['d0aee3867bc22550'], where: 'Errors → the error after Show details: the component is named in it' },
@@ -539,6 +544,59 @@ const MISSIONS = [
     done: 'you did by script what an observability backend does: filter, group by trace, read the reason. Five more cases in tools/cases/.',
   },
   {
+    title: 'Your first agent, by hand',
+    recap: {
+      did: 'built an agent with Google ADK: a tool over your raw spans, an instruction, and the loop that runs them',
+      happened: 'the model asked for the tool, your code ran it on .telemetry/spans.ndjson, the result went back, the model answered',
+      why: 'a model knows nothing about your shop — it can only use the tools you give it, and every fact comes from one',
+      see: 'npm run agent "Why do orders fail?" — each line of the printout is one step of the loop',
+      facts: () => [`${agentRun.model ?? ''}: called ${(agentRun.calls ?? []).join(', ') || 'nothing'}`, `answer: ${String(agentRun.answer ?? '').slice(0, 140)}`],
+    },
+    story: [
+      'Mission 7 answered "why are orders refused?" with a script. Now let a model answer it. A model has never seen your',
+      'shop: an agent is a model + an instruction + tools, in a loop — the model asks for a tool, your code runs it, the',
+      'result goes back, until it can answer. You build one with Google ADK, the toolkit the observer will use later too.',
+    ],
+    steps: [
+      'tools/agent.mjs — read the tool rejectedOrders first: a name, a description the model reads, the code that runs',
+      'uncomment the ▶ lines one by one — the loop first (runner.runAsync), then the tool, then the step; after each: npm run agent "Why do orders fail?"',
+      'watch the printout change: no tool — it can only guess; a tool but no step — it has the tool and still does not look; both — "model asks", "code ran it", "model answers"',
+      'bonus: a real model — npm run agent -- --real "Why do orders fail?" (Kitana: your logged-in claude / codex CLI; Gemini: GEMINI_API_KEY and GEMINI_MODEL in .env)',
+    ],
+    goals: [
+      { ...uncomment(AGENT, 'loop'), ok: () => active(AGENT, /for await \(const event of runner\.runAsync/) },
+      { ...uncomment(AGENT, 'tool'), ok: () => active(AGENT, /tools\.push\(rejectedOrders\)/) },
+      { ...uncomment(AGENT, 'step'), ok: () => active(AGENT, /steps\.push\('Call rejected_orders/) },
+      {
+        what: 'the agent ran',
+        outcome: true,
+        ok: () => Boolean(agentRun.answer),
+        got: () => agentRun.model ?? '',
+        hint: 'npm run agent "Why do orders fail?"',
+      },
+      {
+        what: 'it used its tool',
+        outcome: true,
+        ok: () => (agentRun.calls ?? []).includes('rejected_orders'),
+        got: () => (agentRun.calls ?? []).join(', '),
+        hint: 'give it the tool (the tools.push ▶ line), then run it again',
+      },
+      {
+        what: 'the reason in the answer',
+        outcome: true,
+        // The reason itself — quoted, or its numbers (a real model may say "at most 10, you asked for 20"); a count alone is not.
+        ok: () => {
+          const answer = String(agentRun.answer ?? '')
+          return reasonsOnRecord.some((r) => answer.includes(r)) || /1\s*[–-]\s*10/.test(answer) || (/\b20\b/.test(answer) && /\b10\b/.test(answer))
+        },
+        got: () => (reasonsOnRecord[0] ? `on record: ${reasonsOnRecord[0]}` : ''),
+        hint: reasonsOnRecord.length ? 'run it again — the answer should quote the reason the tool returned' : 'no refused order with a reason in your spans yet — mission 5: with the receiver running, buy 20 in the shop',
+      },
+    ],
+    stuck: 'npm run agent -- --solution runs the finished agent. No refused orders in the data? mission 5 first: the receiver running, placeOrder uncommented, Quantity 20 → Buy',
+    done: 'your first agent answered from your own data — and you watched every step of the loop it ran.',
+  },
+  {
     title: 'Good evening, Kevin',
     recap: {
       did: 'stopped your receiver and started the observer on the same port',
@@ -615,7 +673,7 @@ const MISSIONS = [
       'the same customers again: npm run users 60, then npm run load 40',
     ],
     goals: [
-      { what: 'observer on 4318', outcome: true, ok: () => observerUp, hint: 'npm run observer (mission 8)' },
+      { what: 'observer on 4318', outcome: true, ok: () => observerUp, hint: 'npm run observer (mission 9)' },
       {
         what: 'v1 deployed',
         outcome: true,
@@ -659,13 +717,13 @@ const MISSIONS = [
     steps: [
       'open the observer: Errors, Overview, Traces (click one for its waterfall), and the card in the bottom right corner',
       'the observer shows the last 15 minutes by default — pick 1h at the top of Errors and Overview, or nothing older shows',
-      'answer a question: npm run mission 10 <key> — e.g. npm run mission 10 home — it asks for the answer',
+      'answer a question: npm run mission 11 <key> — e.g. npm run mission 11 home — it asks for the answer',
       'a wrong answer tells you where to look — not the answer',
     ],
     // Checked when the list is printed — after an answer given in this same run has been kept.
     goals: QUIZ.map((item) => {
       const right = () => correct(item, answers[item.key] ?? '')
-      return { what: item.key, outcome: true, ok: right, got: () => (right() ? String(answers[item.key]) : ''), hint: `${item.q}  → npm run mission 10 ${item.key}` }
+      return { what: item.key, outcome: true, ok: right, got: () => (right() ? String(answers[item.key]) : ''), hint: `${item.q}  → npm run mission 11 ${item.key}` }
     }),
     stuck: 'too little in Errors? pick 1h at the top; still nothing — npm run users 60 again, the customers make the browser bugs happen',
     done: 'nine bugs named from the telemetry alone. How many did you notice by hand in part 1?',
@@ -687,7 +745,7 @@ const MISSIONS = [
       'pick one: app/product/[id]/wishlist.tsx (Save for later), app/product/[id]/reviews.tsx (reviews), app/search.tsx (search)',
       'before you fix it, look: observer → Errors (1h) → its entry — note how many times it happened and "last seen"',
       'uncomment the ▶ line in it and read the "Why" — the dev server picks the change up on save',
-      'npm run mission 11 — it opens the shop in its own browser, does exactly that, and prints what the observer saw',
+      'npm run mission 12 — it opens the shop in its own browser, does exactly that, and prints what the observer saw',
       'look again: the same entry in Errors did not grow, "last seen" is still from before your fix — that is the proof',
     ],
     goals: FIXES.map((fix) => ({
@@ -701,11 +759,11 @@ const MISSIONS = [
       get hint() {
         const state = fixState.get(fix.what)
         if (!active(fix.file, fix.line)) return `${fix.file} — uncomment the ▶ line`
-        if (!state) return 'npm run mission 11 checks it in its own browser'
+        if (!state) return 'npm run mission 12 checks it in its own browser'
         return state.broken
       },
     })),
-    stuck: 'the shop is not on port 3000? BASE_URL=http://localhost:<port> npm run mission 11',
+    stuck: 'the shop is not on port 3000? BASE_URL=http://localhost:<port> npm run mission 12',
     done: 'one bug gone — and you saw the proof: the error stopped coming while the shop was used. Fixed means the telemetry says so, not "it works on my machine".',
   },
   {
@@ -736,7 +794,7 @@ const MISSIONS = [
         outcome: true,
         ok: () => patrol.length > 0,
         got: () => `${patrol.length} checks`,
-        hint: observerUp ? 'save observe.checks.ts — the observer reloads it; is it in the shop folder?' : 'npm run observer (mission 8)',
+        hint: observerUp ? 'save observe.checks.ts — the observer reloads it; is it in the shop folder?' : 'npm run observer (mission 9)',
       },
       {
         what: 'the shop is up',
@@ -804,7 +862,7 @@ const MISSIONS = [
         outcome: true,
         ok: () => chatInfo?.enabled === true,
         got: () => (chatInfo?.enabled ? `${chatInfo.mode} model` : ''),
-        hint: observerUp ? `the observer has no chat: ${chatInfo?.reason ?? 'see its terminal'}` : 'npm run observer (mission 8)',
+        hint: observerUp ? `the observer has no chat: ${chatInfo?.reason ?? 'see its terminal'}` : 'npm run observer (mission 9)',
       },
       {
         what: 'your droid answered',
@@ -821,7 +879,7 @@ const MISSIONS = [
         hint:
           versionsOf(app.name).length === 0
             ? EMPTY_OBSERVER
-            : `no regression card — the observer knows only ${versionsOf(app.name).join(', ')} (it forgets on a restart). Redo mission 9: npm run dev:v1 + npm run load 30, then npm run dev:v2 + npm run load 30 — then ask again`,
+            : `no regression card — the observer knows only ${versionsOf(app.name).join(', ')} (it forgets on a restart). Redo mission 10: npm run dev:v1 + npm run load 30, then npm run dev:v2 + npm run load 30 — then ask again`,
       },
       {
         what: 'the function found',
@@ -839,7 +897,7 @@ const MISSIONS = [
   },
 ]
 
-// ── An answer for mission 10: npm run mission 10 <key> <answer> ─────────────────────────────────────────────────────
+// ── An answer for mission 11: npm run mission 11 <key> <answer> ─────────────────────────────────────────────────────
 const QUIZ_N = MISSIONS.findIndex((m) => m.quiz) + 1
 const FIX_N = MISSIONS.findIndex((m) => m.title === 'Fix one') + 1
 if (process.argv[2] === String(FIX_N)) await checkFixes()

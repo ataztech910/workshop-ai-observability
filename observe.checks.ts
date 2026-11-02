@@ -1,4 +1,4 @@
-// Mission 12 · The night patrol: what must stay true about the shop. Uncomment the ▶ lines (Cmd+/).
+// Mission 13 · The night patrol: what must stay true about the shop. Uncomment the ▶ lines (Cmd+/).
 // The observer reads this file while it runs — no restart — and asks the shop on a timer, like a customer would.
 // A check that fails twice in a row becomes an anomaly in the observer. Plain data — nothing to import.
 type Check = {
