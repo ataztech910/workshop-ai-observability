@@ -24,6 +24,8 @@ function start(printSpans) {
   // Ready-made helpers — the plumbing, not the point:
   // the body as an object (senders may gzip it to save bandwidth), and one batch per line in the file.
   const decode = (body, headers) => JSON.parse((headers['content-encoding'] === 'gzip' ? gunzipSync(body) : body).toString('utf8'))
+  // Why one batch per line (NDJSON, not one big JSON array): we only ever append; a crash costs at most the last line;
+  // tail, grep and jq read it as it grows — the OpenTelemetry Collector's file exporter writes the same way.
   const save = (batch) => appendFileSync(FILE, JSON.stringify(batch) + '\n')
 
   createServer((req, res) => {
