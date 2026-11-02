@@ -42,6 +42,8 @@ const nextObserve = installed('next-observe')
 if (!next) fail('dependencies are not installed', 'run `npm install` in this folder')
 // You install next-observe yourself in part 2 — not having it yet is the starting point, not a problem.
 else ok(`npm install done (next ${next}${nextObserve ? `, next-observe ${nextObserve}` : ', next-observe comes in part 2'})`)
+// Mission 8 builds an agent with Google's ADK; a clone installed before it was added lacks the package.
+if (next && !installed('@google/adk')) fail('the agent kit is missing (@google/adk)', 'run `npm install` again — mission 8 needs it')
 
 // 3. The observer is downloaded — `npm run dev` / `npm run observer` start it with npx, which needs the network once.
 // Through the network on purpose (no --prefer-offline): this runs at home and should pick up the newest observer.

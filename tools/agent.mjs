@@ -5,10 +5,18 @@
 //
 // Uncomment the ▶ lines (Cmd+/), then:   npm run agent "Why do orders fail?"
 //                    a real model:      npm run agent -- --real "Why do orders fail?"
+//                    behind?            npm run agent -- --solution   (the same file, every ▶ line uncommented)
 import { FunctionTool, InMemorySessionService, LlmAgent, Runner } from '@google/adk'
 import { z } from 'zod'
 import { keepRun, modelFor, printEvent } from './agent-kit.mjs'
 import { loadSpans } from './cases/spans.mjs'
+import { isRejected } from './solutions/rejected.mjs'
+
+// Behind? The same agent with every ▶ line uncommented.
+if (process.argv.includes('--solution')) {
+  await import('./solutions/agent.mjs')
+  process.exit(0)
+}
 
 // A tool: a name, a description the model reads to decide when to call it, its parameters, and the code that runs.
 // This one reads your raw spans (.telemetry/spans.ndjson) and returns the refused checkouts with the reason your
@@ -19,8 +27,9 @@ const rejectedOrders = new FunctionTool({
   parameters: z.object({}),
   execute: async () => {
     const spans = loadSpans({ quiet: true }).filter((s) => !s.service?.endsWith('-browser'))
-    const refused = spans.filter((s) => s.kind === 2 && s.attributes['http.route'] === '/api/checkout' && s.attributes['http.status_code'] === 400)
-    const reasons = refused.map((r) => spans.find((s) => s.traceId === r.traceId && s.attributes['order.rejected'])?.attributes['order.rejected'] ?? 'no reason recorded')
+    const byTrace = Map.groupBy(spans, (s) => s.traceId)
+    const refused = spans.filter(isRejected) // the same filter as mission 7's solution
+    const reasons = refused.map((r) => byTrace.get(r.traceId).find((s) => s.attributes['order.rejected'])?.attributes['order.rejected'] ?? 'no reason recorded')
     return { refused: refused.length, reasons: [...new Set(reasons)] }
   },
 })
@@ -38,17 +47,18 @@ const steps = ['You find out why orders in an online shop fail. Facts only from 
 const { model, label } = await modelFor(process.argv)
 const agent = new LlmAgent({ name: 'order_agent', model, instruction: steps.join('\n'), tools })
 
-const question = process.argv.slice(2).filter((a) => a !== '--real').join(' ') || 'Why do orders fail?'
+const question = process.argv.slice(2).filter((a) => !a.startsWith('--')).join(' ') || 'Why do orders fail?'
 const sessions = new InMemorySessionService()
 const session = await sessions.createSession({ appName: 'porto-shop', userId: 'you' })
 const runner = new Runner({ agent, appName: 'porto-shop', sessionService: sessions })
-const run = { question, model: label, tools: tools.map((t) => t.name), calls: [], answer: '' }
+const run = { question, model: label, tools: tools.map((t) => t.name), calls: [], answer: '', events: 0 }
 
 console.log(`asking ${label}: ${question}\n`)
 const newMessage = { role: 'user', parts: [{ text: question }] }
 // for await (const event of runner.runAsync({ userId: 'you', sessionId: session.id, newMessage })) printEvent(event, run) // ▶
 //   Why: this is the loop. Each event is one step: the model asking for a tool, the result going back, the answer.
 //   ADK runs it until the model answers instead of asking.
-if (!run.answer && run.calls.length === 0) console.log('nothing ran yet — uncomment the ▶ line with runner.runAsync')
+if (run.events === 0) console.log('nothing ran yet — uncomment the ▶ line with runner.runAsync')
+else if (run.error && !run.answer) console.log('the loop ran, the model failed — the error is above (not logged in to the CLI? a wrong GEMINI_MODEL?)')
 
 keepRun(run)

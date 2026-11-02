@@ -560,7 +560,7 @@ const MISSIONS = [
     steps: [
       'tools/agent.mjs — read the tool rejectedOrders first: a name, a description the model reads, the code that runs',
       'uncomment the ▶ lines one by one — the loop first (runner.runAsync), then the tool, then the step; after each: npm run agent "Why do orders fail?"',
-      'watch the printout: without the tool the model says it can only guess; with it — "model asks", "code ran it", "model answers"',
+      'watch the printout change: no tool — it can only guess; a tool but no step — it has the tool and still does not look; both — "model asks", "code ran it", "model answers"',
       'bonus: a real model — npm run agent -- --real "Why do orders fail?" (Kitana: your logged-in claude / codex CLI; Gemini: GEMINI_API_KEY and GEMINI_MODEL in .env)',
     ],
     goals: [
@@ -584,12 +584,16 @@ const MISSIONS = [
       {
         what: 'the reason in the answer',
         outcome: true,
-        ok: () => reasonsOnRecord.some((r) => String(agentRun.answer ?? '').includes(r)) || /\b10\b/.test(String(agentRun.answer ?? '')),
+        // The reason itself — quoted, or its numbers (a real model may say "at most 10, you asked for 20"); a count alone is not.
+        ok: () => {
+          const answer = String(agentRun.answer ?? '')
+          return reasonsOnRecord.some((r) => answer.includes(r)) || /1\s*[–-]\s*10/.test(answer) || (/\b20\b/.test(answer) && /\b10\b/.test(answer))
+        },
         got: () => (reasonsOnRecord[0] ? `on record: ${reasonsOnRecord[0]}` : ''),
         hint: reasonsOnRecord.length ? 'run it again — the answer should quote the reason the tool returned' : 'no refused order with a reason in your spans yet — mission 5: with the receiver running, buy 20 in the shop',
       },
     ],
-    stuck: 'no refused orders in the data? mission 5 first: the receiver running, placeOrder uncommented, then Quantity 20 → Buy',
+    stuck: 'npm run agent -- --solution runs the finished agent. No refused orders in the data? mission 5 first: the receiver running, placeOrder uncommented, Quantity 20 → Buy',
     done: 'your first agent answered from your own data — and you watched every step of the loop it ran.',
   },
   {
