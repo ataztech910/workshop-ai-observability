@@ -1,3 +1,4 @@
+// Mission 4 · not before: until then the shop runs without it, and next-observe is not installed yet.
 // The browser half of the APM agent. Next.js loads this file by name in every page, before the app.
 // Uncomment the ▶ line (Cmd+/ or Ctrl+/), after `npm install next-observe`.
 
