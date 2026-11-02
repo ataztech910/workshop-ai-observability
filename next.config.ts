@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next'
+// Mission 4 · the two ▶ lines below — not before: next-observe is installed in mission 4.
 // import { withObserve } from 'next-observe/config' // ▶
 //   Why: the browser cannot send spans to 127.0.0.1:4318 — that is the visitor's own machine, not yours. withObserve
 //   gives the shop a route, /__observe, that takes the browser's spans and passes them on to your receiver.

@@ -1,3 +1,4 @@
+// Mission 4 · not before: until then the shop runs without it, and next-observe is not installed yet.
 // The server half of the APM agent. Next.js looks for this file by name and calls register() once, when the
 // server starts. Uncomment the ▶ line (Cmd+/ or Ctrl+/), after `npm install next-observe`.
 
