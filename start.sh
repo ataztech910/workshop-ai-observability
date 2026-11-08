@@ -69,7 +69,7 @@ main() {
   # Part 1 is "be a customer": the shop as your users get it — a production build. The dev server would show its own
   # error badge and give some of the bugs away. From mission 4 on you run the dev server (npm run dev) instead.
   say "Building the shop for production (npm run build)"
-  npm run build
+  npm run build || fail "the build failed — the error is above; ask the instructor, or run npm run dev instead for now"
   say "Starting the shop — open the address Next.js prints below (usually http://localhost:3000). Ctrl+C stops it."
   exec npm start
 }
