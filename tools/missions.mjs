@@ -388,7 +388,7 @@ const MISSIONS = [
     steps: [
       'npm install next-observe',
       'uncomment the ▶ lines in instrumentation.ts, instrumentation-client.ts and next.config.ts',
-      'restart npm run dev (Ctrl+C, then again)',
+      'stop the shop (Ctrl+C) and start the dev server: npm run dev — from now on the shop runs in dev, it picks up every change on save',
       'in the shop: product 1 → ♡ Save for later; then Quantity 20 → Buy',
       'tools/print-spans.mjs — uncomment the noise-filter ▶ line: Next.js sends a dozen spans per page',
     ],
@@ -410,7 +410,7 @@ const MISSIONS = [
         outcome: true,
         ok: () => fromShop.length > 0,
         got: () => `${fromShop.length} spans`,
-        hint: 'receiver running? then restart npm run dev and open a page of the shop',
+        hint: 'receiver running? then stop the shop (Ctrl+C), start npm run dev and open a page of the shop',
       },
       {
         what: 'browser spans arrive',
